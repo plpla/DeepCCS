@@ -49,23 +49,67 @@ class BaseEncoder(object):
         pass
 
     def transform(self, X):
-        return self._transform(X)
+        if self._is_fit:
+	    return self._transform(X)
+	else:
+	    raise RuntimeError("Encoder must be fit first")
 
     def _transform(self, X):
         pass
 
 
 class AdductToOneHotEncoder(BaseEncoder):
+
     def _fit(self, X):
-        pass
+    """
+    X : array of all adducts
+    """
+	for i, j in enumerate(set(X)):
+            self.converter[j] = i
+
 
     def _transform(self, X):
-        pass
+	number_of_element = X.shape[0]
+    	X_encoded = np.zeros((number_of_element, len(self.converter)))
+    	for i, adduct in enumerate(X):
+            X_encoded[i, self.converter[adduct]] = 1
+        return X_encoded
 
 
 class SmilesToOneHotEncoder(BaseEncoder):
+
     def _fit(self, X, n_items=-1):
-        pass
+    """
+    X : array of all smiles
+    """
+	chars = []
+	for smiles in X:
+            for i, letter in enumerate(smiles):
+	        if letter.islower() and smiles[i-1].isupper():
+	            chars.append(smiles[i-1]+letter)
+	        else:
+	            chars.append(letter)
+
+	for i, j in enumerate(set(chars)):
+	    self.converter[j] = i
+
+
 
     def _transform(self, X):
-        pass
+    
+	number_of_element = X.shape[0]
+    	X_encoded = np.zeros((number_of_element, MAX_SMILES_LENGTH, len(self.converter))) # -------- MAX_SMILES_LENGTH
+    	for i, smiles in enumerate(X):
+        	for j, letter in enumerate(smiles):
+	            if letter.isupper() and smiles[j+1].islower():
+	                X_encoded[i, j, self.converter[letter+smiles[j+1]]] = 1
+	            elif letter.islower() and smiles[j-1].isupper():
+	                pass
+	            else:
+        	        X_encoded[i, j, self.converter[letter]] = 1
+
+    	return X_encoded
+
+
+
+
