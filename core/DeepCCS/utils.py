@@ -19,3 +19,18 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
+
+def split_smiles(smile):
+    splitted_smile = []
+    for i, letter in enumerate(smile):
+        if letter.isupper():
+            if smile[i+1].islower():
+                splitted_smile.append(smile[i:i+2])
+            else:
+                splitted_smile.append(letter)
+        elif letter.islower() and smile[i - 1].isupper():
+            pass
+        else:
+            splitted_smile.append(letter)
+    return splitted_smile

@@ -21,7 +21,8 @@
 """
 
 import json
-
+import numpy as np
+from ..utils import split_smiles
 
 class BaseEncoder(object):
     """
@@ -50,9 +51,9 @@ class BaseEncoder(object):
 
     def transform(self, X):
         if self._is_fit:
-	    return self._transform(X)
-	else:
-	    raise RuntimeError("Encoder must be fit first")
+            return self._transform(X)
+        else:
+            raise RuntimeError("Encoder must be fit first")
 
     def _transform(self, X):
         pass
@@ -61,54 +62,49 @@ class BaseEncoder(object):
 class AdductToOneHotEncoder(BaseEncoder):
 
     def _fit(self, X):
-    """
-    X : array of all adducts
-    """
-	for i, j in enumerate(set(X)):
+        """
+        X : array of all adducts
+        """
+        for i, j in enumerate(set(X)):
             self.converter[j] = i
 
-
     def _transform(self, X):
-	number_of_element = X.shape[0]
-    	X_encoded = np.zeros((number_of_element, len(self.converter)))
-    	for i, adduct in enumerate(X):
+        number_of_element = X.shape[0]
+        X_encoded = np.zeros((number_of_element, len(self.converter)))
+        for i, adduct in enumerate(X):
             X_encoded[i, self.converter[adduct]] = 1
         return X_encoded
 
 
 class SmilesToOneHotEncoder(BaseEncoder):
+    def __init__(self):
+        BaseEncoder.__init__(self)
+        self._max_length = -1
 
-    def _fit(self, X, n_items=-1):
-    """
-    X : array of all smiles
-    """
-	chars = []
-	for smiles in X:
-            for i, letter in enumerate(smiles):
-	        if letter.islower() and smiles[i-1].isupper():
-	            chars.append(smiles[i-1]+letter)
-	        else:
-	            chars.append(letter)
+    def _fit(self, X):
+        """
+        X : array of smiles
+        """
+        splitted_smiles = [split_smiles(s) for s in X]
+        lengths = [len(s) for s in splitted_smiles]
+        chars = [char for s in splitted_smiles for char in s]
 
-	for i, j in enumerate(set(chars)):
-	    self.converter[j] = i
+        if len(set(lengths)) != 1:
+            print(lengths)
+            raise ValueError("Items in X must be all of the same length")
+        else:
+            self._max_length = lengths[0]
 
-
+        for i, j in enumerate(set(chars)):
+            self.converter[j] = i
 
     def _transform(self, X):
-    
-	number_of_element = X.shape[0]
-    	X_encoded = np.zeros((number_of_element, MAX_SMILES_LENGTH, len(self.converter))) # -------- MAX_SMILES_LENGTH
-    	for i, smiles in enumerate(X):
-        	for j, letter in enumerate(smiles):
-	            if letter.isupper() and smiles[j+1].islower():
-	                X_encoded[i, j, self.converter[letter+smiles[j+1]]] = 1
-	            elif letter.islower() and smiles[j-1].isupper():
-	                pass
-	            else:
-        	        X_encoded[i, j, self.converter[letter]] = 1
-
-    	return X_encoded
+        number_of_element = len(X)
+        X_encoded = np.zeros((number_of_element, self._max_length, len(self.converter)))
+        for i, smiles in enumerate(X):
+            for j, letter in enumerate(split_smiles(smiles)):
+                    X_encoded[i, j, self.converter[letter]] = 1
+        return X_encoded
 
 
 
