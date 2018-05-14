@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-    DeepCCS: CCS prediction using deep neural network
+    DeepCCS: CCS prediction from SMILES using deep neural network
 
     Copyright (C) 2018 Pier-Luc
 
@@ -23,6 +23,7 @@
 import json
 import numpy as np
 from ..utils import split_smiles
+from ..parameters import *
 
 class BaseEncoder(object):
     """
@@ -85,7 +86,7 @@ class SmilesToOneHotEncoder(BaseEncoder):
         """
         X : array of smiles
         """
-        splitted_smiles = [split_smiles(s) for s in X]
+        splitted_smiles = [self._split_smiles(s) for s in X]
         lengths = [len(s) for s in splitted_smiles]
         chars = [char for s in splitted_smiles for char in s]
 
@@ -98,6 +99,10 @@ class SmilesToOneHotEncoder(BaseEncoder):
         for i, j in enumerate(set(chars)):
             self.converter[j] = i
 
+    def load_encoder(self, json_file):
+        BaseEncoder.load_encoder(self, json_file)
+        self._max_length = MAX_SMILES_LENGTH
+
     def _transform(self, X):
         number_of_element = len(X)
         X_encoded = np.zeros((number_of_element, self._max_length, len(self.converter)))
@@ -105,6 +110,20 @@ class SmilesToOneHotEncoder(BaseEncoder):
             for j, letter in enumerate(split_smiles(smiles)):
                     X_encoded[i, j, self.converter[letter]] = 1
         return X_encoded
+
+    def _split_smiles(self, smile):
+        splitted_smile = []
+        for i, letter in enumerate(smile):
+            if letter.isupper():
+                if i + 1 < len(smile) and smile[i + 1].islower():
+                    splitted_smile.append(smile[i:i + 2])
+                else:
+                    splitted_smile.append(letter)
+            elif letter.islower() and smile[i - 1].isupper():
+                pass
+            else:
+                splitted_smile.append(letter)
+        return splitted_smile
 
 
 

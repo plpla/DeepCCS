@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-    DeepCCS: CCS prediction using deep neural network
+    DeepCCS: CCS prediction from SMILES using deep neural network
 
     Copyright (C) 2018 Pier-Luc
 
@@ -24,25 +24,36 @@
 import logging
 import numpy as np
 from keras.models import load_model, save_model
-
+from .encoders import SmilesToOneHotEncoder, AdductToOneHotEncoder
 
 class DeepCCSModel(object):
 
     def __init__(self):
         self.model = None
-        self._is_trained = False;
+        self.adduct_encoder = AdductToOneHotEncoder()
+        self.smiles_encoder = SmilesToOneHotEncoder()
+        self._is_fit = False
 
-    def load_model_from_file(self, filename):
+    def load_model_from_file(self, filename, adduct_encoder_file, smiles_encoder_file):
         self.model = load_model(filename)
-        self._is_trained = True
+        self.adduct_encoder.load_encoder(adduct_encoder_file)
+        self.smiles_encoder.load_encoder(smiles_encoder_file)
+        self._is_fit = True
         logging.debug("Model loaded from file {}".format(filename))
 
-    def save_model_to_file(self, filename):
+    def save_model_to_file(self, filename, adduct_encoder_file, smiles_encoder_file):
         save_model(filename)
+        self.adduct_encoder.save_encoder(adduct_encoder_file)
+        self.smiles_encoder.save_encoder(smiles_encoder_file)
 
-    def predict(self, X_smiles, X_adducts=[]):
-        pass
+    def predict(self, X_smiles, X_adducts):
+        if not self._is_fit:
+            raise ValueError("Model must be load or fit first")
+        X_smiles = self.smiles_encoder.transform(X_smiles)
+        X_adducts = self.adduct_encoder.transform(X_adducts)
 
+        y_pred = self.model.predict([X_smiles, X_adducts])
+        return y_pred
 
 
 

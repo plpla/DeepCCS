@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-    DeepCCS: CCS prediction using deep neural network
+    DeepCCS: CCS prediction from SMILES using deep neural network
 
     Copyright (C) 2018 Pier-Luc
 
@@ -20,17 +20,24 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from .parameters import *
+import numpy as np
+import logging
 
-def split_smiles(smile):
-    splitted_smile = []
-    for i, letter in enumerate(smile):
-        if letter.isupper():
-            if smile[i+1].islower():
-                splitted_smile.append(smile[i:i+2])
-            else:
-                splitted_smile.append(letter)
-        elif letter.islower() and smile[i - 1].isupper():
-            pass
-        else:
-            splitted_smile.append(letter)
-    return splitted_smile
+
+def filter_data(data_table):
+    """
+    Filter data table using a set of constraints defined by global vars.
+    :param data_table: A pandas dataframe with at least 2 columns: 'SMILE' and 'Adduct'
+    :return: A copy of the data frame with some columns removed.
+    """
+    # Remove smiles that are too long
+    logging.debug("{} items before filtering".format(len(data_table)))
+    data = data_table[np.array([len(str(i)) for i in data_table["SMILES"]]) <= MAX_SMILES_LENGTH]
+    # Remove empty smiles
+    data = data[np.array([len(str(i)) for i in data["SMILES"]]) > 0]
+    data = data.dropna(axis=0, how="any", subset=["SMILES"])
+    # Remove unhandled adducts
+    data = data[np.array([(i in ADDUCTS_TO_KEEP) for i in data["Adducts"]])]
+    logging.debug("{} items after filtering".format(len(data)))
+    return data
