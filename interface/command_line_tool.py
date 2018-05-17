@@ -23,11 +23,13 @@
 
 from sys import argv
 from os import path
+import h5py as h5
 import argparse
 import logging
 import pandas as pd
-from DeepCCS.utils import filter_data
+from DeepCCS.utils import *
 import numpy as np
+from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 
 DESCRIPTION = "DeepCCS: CCS prediction from SMILES using deep neural network"
 VERSION = "0.0.1"
@@ -57,7 +59,7 @@ class CommandLineInterface(object):
 
         self.parser_predict.add_argument("-m", help="path to model directory", default="default")
         self.parser_predict.add_argument("-i", help="input file name", required=True)
-        self.parser_predict.add_argument("-o", help="Output file name. If not specified, stdout will be used",
+        self.parser_predict.add_argument("-o", help="Output file name (MyFile.csv). If not specified, stdout will be used",
                                          default="")
         self.parser_predict.set_defaults(func=self.predict)
 
@@ -71,7 +73,41 @@ class CommandLineInterface(object):
         # evaluate #
         ############
 
-        # TODO
+        self.parser_predict = self.subparser.add_parser("evaluate",
+                                                        help="Predict CCS for some SMILES and adducts using a pretrained model and ouput stats on the predictions.")
+
+        self.parser_predict.add_argument("-m", help="path to model directory", default="default")
+        self.parser_predict.add_argument("-r", help="reference file name", required=True)
+	self.parser_predict.add_argument("-o", help="Output file name (MyFile.csv). If not specified, stdout will be used",
+                                         default="")
+        self.parser_predict.set_defaults(func=self.evaluate)
+
+	###########
+	# compare #
+	###########
+
+        self.parser_predict = self.subparser.add_parser("compare",
+                                                        help="Compare for some SMILES and adducts the given CCS value with the value used to create this algoritm.")
+
+        self.parser_predict.add_argument("-r", help="reference file name", required=True)
+        self.parser_predict.add_argument("-o", help="prefix for output file name. If not specified, stdout will be used",
+                                         default="")
+	self.parser_predict.add_argument("-e", help="output files extension (.csv, .txt, ...)")
+	self.parser_predict.add_argument("-f", help="h5 file containing the datasets used to create this algoritm", required=True)
+	self.parser_predict.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)", default=None)
+        self.parser_predict.set_defaults(func=self.compare)
+
+	#############
+	# create h5 #
+	#############
+
+	self.parser_predict = self.subparser.add_parser("create_h5",
+                                                        help="Create the h5 file of all the datasets used to create the algorithm.")
+
+        self.parser_predict.add_argument("-p", help="Path to the datatsets template", required=True)
+	self.parser_predict.set_defaults(func=self.create_h5)
+
+
 
         #########
         # Parse #
@@ -88,8 +124,148 @@ class CommandLineInterface(object):
             args = self.parser.parse_args(argv[1:])
             print("-- was not used. Here are the args:" + str(vars(args)))
             args.func(args)
+    
+    
+    def create_h5(self, args):
+        print("Starting creating tool with the following args:" + str(args))
+        if not path.isdir(args.p):
+            raise IOError("Path of templates cannot be found.")
+
+	create_datasets_compil(args.p)
+
+
+    def output_global_stats(ccs_ref, ccs_pred):
+
+	mean = round(mean_absolute_error(ccs_ref, ccs_pred),2)
+        med = round(median_absolute_error(ccs_ref, ccs_pred),2)
+        relative_mean = round(relative_mean(ccs_ref, ccs_pred),2)
+        relative_med = round(relative_median(ccs_ref, ccs_pred),2)
+        r2 = round(r2_score(ccs_ref, ccs_pred),2)
+        perc_90 = round(percentile_90(ccs_ref, ccs_pred),2)
+        perc_95 = round(percentile_95(ccs_ref, ccs_pred),2)
+
+        print("--------------------------------")
+        print("          Mean      :  {} ".format(mean))
+        print("     Relative Mean  :  {} ".format(relative_mean))   
+        print("         Median     :  {} ".format(med))   
+        print("    Relative Median :  {} ".format(relative_med))  
+        print("           R2       :  {} ".format(r2))  
+        print("     90e Percentile :  {} ".format(perc_90))
+        print("     95e Percentile :  {} ".format(perc_95))  
+        print("--------------------------------")
+
+
+
+    def read_datasets(self, h5_path, dataset_name):
+    # Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
+      
+	# Create df
+	pd_df = pd.DataFrame(columns=["Compound", "CAS", "SMILES", "Mass", "Adducts", "CCS", "Metadata"])
+	
+	# Open reference file and retrieve data corresponding to the dataset name 
+	f = h5.File(h5_path, 'r')
+	pd_df["Compound"] = f[dataset_name+'/Compound']
+	pd_df["CAS"] = f[dataset_name+'/CAS']
+	pd_df["SMILES"] = f[dataset_name+'/SMILES']
+	pd_df["Mass"] = f[dataset_name+'/Mass']
+	pd_df["Adducts"] = f[dataset_name+'/Adducts']
+	pd_df["CCS"] = f[dataset_name+'/CCS']
+	pd_df["Metadata"] = f[dataset_name+'/Metadata']
+	f.close()
+
+	return pd_df
+	
+
+
+    def compare(self, args):
+    # Useful to compare given reference data to the ones used to create this algorithm.
+    
+        print("Starting comparaison tool with the following args:" + str(args))
+        if not path.isfile(args.r):
+            raise IOError("Reference file cannot be found")
+        if not path.isfile(args.f):
+            raise IOError("h5 file cannot be found")
+	
+	# Data given by user
+	X_smiles, X_adducts, X_ccs = self.read_reference_table(args.r)
+	
+        # Output prefix, if none : output to stdout
+        if args.o != "":
+            Ofile_name = args.o
+        else:
+            Ofile_name = None
+
+	# Data used to create algorithm
+	if args.d != None:
+            dt_list = args.d.split(",")
+	else:
+            dt_list = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL", "McLean", "CBM"]
+
+
+
+	# Get a pandas dataframe for each dataset asked for comparaison 
+	# output another table with all the original values + the ccs given by user in an extra column
+	# print general stats on the compaison
+	for i in dt_list:
+	    df_dt = self.read_datasets(args.f, i)
+	    self.output_results(df_dt, X_smiles, X_adducts, X_ccs, Ofile_name+i+args.e)
+	    ccs_user = []
+	    ccs_ref = []
+	    for i, j in enumerate(X_smiles):
+		for k in df_dt.itertuple:
+		    if j == k["SMILES"] and X_adducts[i] == k["Adducts"]:
+			ccs_user.append(X_ccs)
+			ccs_ref.append(k["CCS"])
+
+            print("{} dataset :".format(i))
+	    print("--------Comparaison stats--------")
+            self.output_global_stats(ccs_ref, ccs_user)
+
+	
+	
+	
+
+    
+    def evaluate(self, args):
+    # Useful to evaluate the performances of the model, the theoritical ccs values must be known.
+    
+	print("Starting evaluation tool with the following args:" + str(args))
+        if not path.isdir(args.m):
+            raise IOError("Model directory cannot be found")
+	if not path.isfile(args.r):
+            raise IOError("Reference file cannot be found")
+        if not path.isfile(path.join(args.m, "model.h5")):
+            raise IOError("Model file is missing from directory")
+        if not path.isfile(path.join(args.m, "adductEncoder.json")):
+            raise IOError("adductEncoder.json is missing from the model directory")
+        if not path.isfile(path.join(args.m, "smilesEncoder.json")):
+            raise IOError("smilesEncoder.json is missing from the model directory")
+         
+        from DeepCCS.model import DeepCCS
+        model = DeepCCS.DeepCCSModel()
+        model.load_model_from_file(model_file=path.join(args.m, "model.h5"),
+                                   adduct_encoder_file=path.join(args.m, "adductEncoder.json"),
+                                   smiles_encoder_file=path.join(args.m, "smilesEncoder.json"))
+
+        X_smiles, X_adducts, X_ccs = self.read_reference_table(args.r)
+        ccs_pred = model.predict(X_smiles, X_adducts)
+	
+	if args.o != "":
+            Ofile_name = args.o
+	else:
+	    Ofile_name = None
+
+        self.output_results(args.r, X_smiles, X_adducts, ccs_pred, Ofile_name)
+
+	print("-----------Model stats-----------")
+	self.output_global_stats(X_ccs, ccs_pred)
+	
+
+
 
     def predict(self, args):
+    # Useful for predicting unknown ccs values
+
         print("Starting prediction tool with the following args:" + str(args))
         if not path.isdir(args.m):
             raise IOError("Model directory cannot be found")
@@ -105,12 +281,20 @@ class CommandLineInterface(object):
         model.load_model_from_file(model_file=path.join(args.m, "model.h5"),
                                    adduct_encoder_file=path.join(args.m, "adductEncoder.json"),
                                    smiles_encoder_file=path.join(args.m, "smilesEncoder.json"))
-
+        
         X_smiles, X_adducts = self.read_input_table(args.i)
-        model.smiles_encoder.transform(X_smiles)
-        #model.adduct_encoder.transform(X_adducts)
-        #ccs_pred = model.predict(X_smiles, X_adducts)
-        #print(ccs_pred)
+        ccs_pred = model.predict(X_smiles, X_adducts)
+
+
+	if args.o != "":
+	    Ofile_name = args.o
+	else:
+	    Ofile_name = None
+        
+	self.output_results(args.i, X_smiles, X_adducts, ccs_pred, Ofile_name)
+
+        
+
 
     def read_input_table(self, file_name):
         if file_name[-4:] == ".csv":
@@ -126,6 +310,52 @@ class CommandLineInterface(object):
         adducts = np.array(table['Adducts'])
         return smiles, adducts
 
+
+    def read_reference_table(self, file_name):
+    # Useful to read a reference table containing the ccs values corresponding to SMILES and adducts 
+   
+        if file_name[-4:] == ".csv":
+            table = pd.read_csv(file_name, sep=",", header=0)
+        elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
+            table = pd.read_excel(file_name, header=0)
+        print(list(table.columns.values))
+        if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts", "CCS"]):
+            raise ValueError("Supplied file must contain at leat 3 columns named 'SMILES', 'Adducts' and 'CCS'. "
+                             "use the provided template if needed.")
+        table = filter_data(table)
+	ccs = np.array(table['CCS'])
+        smiles = np.array(table['SMILES'])
+        adducts = np.array(table['Adducts'])
+        return smiles, adducts, ccs
+
+    def output_results(self, Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
+        if Ifile_name[-4:] == ".csv":
+            table = pd.read_csv(Ifile_name, sep=",", header=0)
+        elif Ifile_name[-5:] == ".xlsx" or Ifile_name[-4:] == ".xls":
+            table = pd.read_excel(Ifile_name, header=0)
+        print(list(table.columns.values))
+        if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
+            raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
+                             "use the provided template if needed.")
+	
+	out_df = table.assign(CCS_pred=Series(np.zeros(len(table)), index=table.index))	
+	for row in out_df.itertuples():
+	    for i, j in enumerate(smiles):
+		if row["SMILES"] == j and row["Adducts"] == adducts[i]:
+		    row["CCS_pred"] = ccs_pred[i]
+	        elif row["SMILES"] != j and row["Adducts"] != adducts[i]:
+		    row["CCS_pred"] == "-" 
+	
+	out_df_string = out_df.to_string(header=True)
+	
+	if Ofile_name == None:
+            sys.stdout.write(out_df_string)
+        else:
+            f = open(Ofile_name, w)
+            out_df.to_string(buf=f, header=True)
+            f.close
+
+	
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
