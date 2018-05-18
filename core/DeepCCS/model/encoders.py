@@ -22,7 +22,7 @@
 
 import json
 import numpy as np
-from ..utils import split_smiles
+#from ..utils import split_smiles
 from ..parameters import *
 
 class BaseEncoder(object):
@@ -107,7 +107,7 @@ class SmilesToOneHotEncoder(BaseEncoder):
         number_of_element = len(X)
         X_encoded = np.zeros((number_of_element, self._max_length, len(self.converter)))
         for i, smiles in enumerate(X):
-            for j, letter in enumerate(split_smiles(smiles)):
+            for j, letter in enumerate(self._split_smiles(smiles)):
                     X_encoded[i, j, self.converter[letter]] = 1
         return X_encoded
 

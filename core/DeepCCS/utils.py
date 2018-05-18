@@ -25,6 +25,7 @@ import numpy as np
 import logging
 import pandas as pd
 import h5py as h5
+import sys
 
 def filter_data(data_table):
     """
@@ -43,7 +44,7 @@ def filter_data(data_table):
     data = data[np.array([(i in ADDUCTS_TO_KEEP) for i in data["Adducts"]])]
     logging.debug("{} items after filtering".format(len(data)))
     post_filter = len(data)
-    sys.stdout.write("{} SMILES and adducts were removed.".format(pre_filter-post_filter))
+    sys.stdout.write("--> {} SMILES and adducts were removed.\n".format(pre_filter-post_filter))
     return data
 
 def percentile_90(Y_true, Y_pred):
