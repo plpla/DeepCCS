@@ -78,17 +78,18 @@ class AdductToOneHotEncoder(BaseEncoder):
 
 
 class SmilesToOneHotEncoder(BaseEncoder):
-    def __init__(self):
+    def __init__(self, max_smiles_length=-1):
         BaseEncoder.__init__(self)
-        self._max_length = -1
+        self._max_length = max_smiles_length
 
     def _fit(self, X):
         """
         X : array of smiles
         """
         splitted_smiles = [self._split_smiles(s) for s in X]
-        lengths = [len(s) for s in splitted_smiles]
-        chars = [char for s in splitted_smiles for char in s]
+        padded_splitted_smiles = [self._pad_smiles(s) for s in splitted_smiles]
+        lengths = [len(s) for s in padded_splitted_smiles]
+        chars = [char for s in padded_splitted_smiles for char in s]
 
         if len(set(lengths)) != 1:
             print(lengths)
@@ -111,19 +112,37 @@ class SmilesToOneHotEncoder(BaseEncoder):
                     X_encoded[i, j, self.converter[letter]] = 1
         return X_encoded
 
-    def _split_smiles(self, smile):
-        splitted_smile = []
-        for i, letter in enumerate(smile):
-            if letter.isupper():
-                if i + 1 < len(smile) and smile[i + 1].islower():
-                    splitted_smile.append(smile[i:i + 2])
+    def _split_smiles(self, smiles):
+        splitted_smiles = []
+        for j, k in enumerate(smiles):
+            if j == 0:
+                if k.isupper() and smiles[j + 1].islower() and smiles[j + 1] != "c":
+                    splitted_smiles.append(k + smiles[j + 1])
                 else:
-                    splitted_smile.append(letter)
-            elif letter.islower() and smile[i - 1].isupper():
-                pass
-            else:
-                splitted_smile.append(letter)
-        return splitted_smile
+                    splitted_smiles.append(k)
+            elif j != 0 and j < len(smiles) - 1:
+                if k.isupper() and smiles[j + 1].islower() and smiles[j + 1] != "c":
+                    splitted_smiles.append(k + smiles[j + 1])
+                elif k.islower() and smiles[j - 1].isupper():
+                    pass
+                else:
+                    splitted_smiles.append(k)
+            elif j == len(smiles) - 1:
+                if k.islower() and smiles[j - 1].isupper():
+                    pass
+                else:
+                    splitted_smiles.append(k)
+        return splitted_smiles
+
+    def _pad_smiles(self, smiles, padding_char=" "):
+        to_pad = int((self._max_length - len(smiles)) / 2)
+        s_padded_left = ([padding_char] * to_pad) + smiles
+        return s_padded_left + ([padding_char] * (self._max_length - len(s_padded_left)))
+
+
+
+
+
 
 
 
