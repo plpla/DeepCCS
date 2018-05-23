@@ -311,6 +311,7 @@ class CommandLineInterface(object):
         X_smiles, X_adducts = self.read_input_table(args.i)
         ccs_pred = model.predict(X_smiles, X_adducts)
 
+	ccs_pred = np.array([i[0] for i in ccs_pred])
 
 	if args.o != "":
 	    Ofile_name = args.o
