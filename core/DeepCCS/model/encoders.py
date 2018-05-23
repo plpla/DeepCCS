@@ -128,7 +128,7 @@ class SmilesToOneHotEncoder(BaseEncoder):
                 else:
                     splitted_smiles.append(k)
             elif j == len(smiles) - 1:
-                if k.islower() and smiles[j - 1].isupper():
+                if k.islower() and smiles[j - 1].isupper() and k != "c":
                     pass
                 else:
                     splitted_smiles.append(k)
