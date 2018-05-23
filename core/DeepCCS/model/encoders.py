@@ -105,10 +105,12 @@ class SmilesToOneHotEncoder(BaseEncoder):
         self._max_length = MAX_SMILES_LENGTH
 
     def _transform(self, X):
-        number_of_element = len(X)
+	X_splitted = [self._split_smiles(s) for s in X]
+	X_padded = [self._pad_smiles(s) for s in X_splitted]
+        number_of_element = len(X_padded)
         X_encoded = np.zeros((number_of_element, self._max_length, len(self.converter)))
-        for i, smiles in enumerate(X):
-            for j, letter in enumerate(self._split_smiles(smiles)):
+        for i, smiles in enumerate(X_padded):
+            for j, letter in enumerate(smiles):
                     X_encoded[i, j, self.converter[letter]] = 1
         return X_encoded
 
