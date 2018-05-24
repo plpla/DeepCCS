@@ -115,26 +115,29 @@ class SmilesToOneHotEncoder(BaseEncoder):
         return X_encoded
 
     def _split_smiles(self, smiles):
-        splitted_smiles = []
-        for j, k in enumerate(smiles):
+        splitted_smiles = []     
+	for j, k in enumerate(smiles):
             if j == 0:
                 if k.isupper() and smiles[j + 1].islower() and smiles[j + 1] != "c":
-                    splitted_smiles.append(k + smiles[j + 1])
+                    splitted_smiles.append(k+smiles[j+1])
                 else:
                     splitted_smiles.append(k)
+            
             elif j != 0 and j < len(smiles) - 1:
                 if k.isupper() and smiles[j + 1].islower() and smiles[j + 1] != "c":
-                    splitted_smiles.append(k + smiles[j + 1])
+                     splitted_smiles.append(k+smiles[j+1])
                 elif k.islower() and smiles[j - 1].isupper() and k != "c":
                     pass
                 else:
                     splitted_smiles.append(k)
+            
             elif j == len(smiles) - 1:
                 if k.islower() and smiles[j - 1].isupper() and k != "c":
                     pass
                 else:
-                    splitted_smiles.append(k)
-        return splitted_smiles
+                    splitted_smiles.append(k)               
+
+	return splitted_smiles
 
     def _pad_smiles(self, smiles, padding_char=" "):
         to_pad = int((self._max_length - len(smiles)) / 2)
