@@ -63,6 +63,11 @@ def relative_median(Y_true, Y_pred):
     med = np.median((abs(Y_pred-Y_true)/Y_true)*100)
     return med
 
+def create_h5(path):
+    if not path.isdir(path):
+        raise IOError("Path of templates cannot be found.")
+
+    create_datasets_compil(path)
 
 def create_datasets_compil(path_to_templates):
     df_MCCS_pos = pd.read_csv(path_to_templates+"/MetCCS1_Template.csv").fillna(" ")
@@ -99,6 +104,113 @@ def create_datasets_compil(path_to_templates):
         f.create_dataset(names[i]+'/Metadata', data=np.array(j["Metadata"]), dtype=dt)
 	print("metadata done")
     f.close()
+
+def output_results(Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
+    if Ifile_name[-4:] == ".csv":
+        table = pd.read_csv(Ifile_name, sep=",", header=0)
+    elif Ifile_name[-5:] == ".xlsx" or Ifile_name[-4:] == ".xls":
+        table = pd.read_excel(Ifile_name, header=0)
+    print(list(table.columns.values))
+
+    if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
+        raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
+                         "use the provided template if needed.")
+
+    out_df = table.assign(CCS_pred=pd.Series(np.zeros(len(table)), index=table.index))      
+    for idx, row in enumerate(out_df.itertuples()):
+        for i, j in enumerate(smiles):
+            if row.SMILES == j and row.Adducts == adducts[i]:
+                out_df.iloc[idx, -1] = ccs_pred[i]
+            elif row.SMILES != j and row.Adducts != adducts[i] and out_df.iloc[idx, -1] == 0:
+                out_df.iloc[idx, -1] = "-" 
+        
+    pd.options.display.max_colwidth = 2000  
+    out_df_string = out_df.to_string(header=True)
+        
+    if Ofile_name == None:
+        sys.stdout.write(out_df_string)
+    else:
+        f = open(Ofile_name, 'w')
+        f.write(out_df.to_string(header=True).encode('utf-8'))
+        f.close
+
+
+
+def output_global_stats(ccs_ref, ccs_pred):
+
+    ccs_ref = np.array(ccs_ref)
+    ccs_pred = np.array(ccs_pred)
+
+    mean = round(mean_absolute_error(ccs_ref, ccs_pred),2)
+    med = round(median_absolute_error(ccs_ref, ccs_pred),2)
+    rel_mean = round(relative_mean(ccs_ref, ccs_pred),2)
+    rel_med = round(relative_median(ccs_ref, ccs_pred),2)
+    r2 = round(r2_score(ccs_ref, ccs_pred),2)
+    perc_90 = round(percentile_90(ccs_ref, ccs_pred),2)
+    perc_95 = round(percentile_95(ccs_ref, ccs_pred),2)
+
+    print("---------------------------------")
+    print("     Absolute Mean  :  {} ".format(mean))
+    print("     Relative Mean  :  {}% ".format(rel_mean))
+    print("    Absolute Median :  {} ".format(med))
+    print("    Relative Median :  {}% ".format(rel_med))
+    print("           R2       :  {} ".format(r2))
+    print("     90e Percentile :  {}% ".format(perc_90))
+    print("     95e Percentile :  {}% ".format(perc_95))
+    print("---------------------------------")
+
+
+def read_datasets(h5_path, dataset_name):
+# Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
+
+    # Create df
+    pd_df = pd.DataFrame(columns=["Compound", "CAS", "SMILES", "Mass", "Adducts", "CCS", "Metadata"])
+
+    # Open reference file and retrieve data corresponding to the dataset name 
+    f = h5.File(h5_path, 'r')
+    pd_df["Compound"] = f[dataset_name+'/Compound']
+    pd_df["CAS"] = f[dataset_name+'/CAS']
+    pd_df["SMILES"] = f[dataset_name+'/SMILES']
+    pd_df["Mass"] = f[dataset_name+'/Mass']
+    pd_df["Adducts"] = f[dataset_name+'/Adducts']
+    pd_df["CCS"] = f[dataset_name+'/CCS']
+    pd_df["Metadata"] = f[dataset_name+'/Metadata']
+    f.close()
+
+    pd_df = filter_data(pd_df)
+
+    return pd_df
+
+def read_input_table(file_name):
+    if file_name[-4:] == ".csv":
+        table = pd.read_csv(file_name, sep=",", header=0)
+    elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
+        table = pd.read_excel(file_name, header=0)
+    print(list(table.columns.values))
+    if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
+        raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
+                             "use the provided template if needed.")
+    table = filter_data(table)
+    smiles = np.array(table['SMILES'])
+    adducts = np.array(table['Adducts'])
+    return smiles, adducts
+
+def read_reference_table(file_name):
+# Useful to read a reference table containing the ccs values corresponding to SMILES and adducts 
+
+    if file_name[-4:] == ".csv":
+        table = pd.read_csv(file_name, sep=",", header=0)
+    elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
+        table = pd.read_excel(file_name, header=0)
+    print(list(table.columns.values))
+    if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts", "CCS"]):
+        raise ValueError("Supplied file must contain at leat 3 columns named 'SMILES', 'Adducts' and 'CCS'. "
+                         "use the provided template if needed.")
+    table = filter_data(table)
+    ccs = np.array(table['CCS'])
+    smiles = np.array(table['SMILES'])
+    adducts = np.array(table['Adducts'])
+    return smiles, adducts, ccs
 
 
 

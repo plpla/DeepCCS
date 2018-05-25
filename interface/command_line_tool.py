@@ -20,7 +20,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
+import datetime
 from sys import argv
 from os import path
 import h5py as h5
@@ -66,8 +66,23 @@ class CommandLineInterface(object):
         #########
         # train #
         #########
+	
+        self.parser_predict = self.subparser.add_parser("train",
+                                                        help="Train a new model.")
+	self.parser_predict.add_argument("-mtrain", help="MetCCS train datasets to create the model", default=None)
+	self.parser_predict.add_argument("-mtestA", help="MetCCS Agilent test datasets to create the model", default=None)
+	self.parser_predict.add_argument("-mtestW", help="MetCCS Waters test datasets to create the model", default=None)
 
-        # TODO
+	self.parser_predict.add_argument("-p", help="PNNL dataset to create the model", default=None)
+	self.parser_predict.add_argument("-c", help="CBM2018 dataset to create the model", default=None)
+	self.parser_predict.add_argument("-mcl", help="McLean dataset to create the model", default=None)	
+	self.parser_predict.add_argument("-f", help="h5 file containing all source datasets", default=None)
+
+        self.parser_predict.add_argument("-nd", help="New Data to create the model, list of template file (file1.csv,file2.csv,...)", default=None)
+        self.parser_predict.add_argument("-nepochs", help="Number of epochs", default=150)
+        self.parser_predict.add_argument("-o", help="Output directory for model and mappers", default="new_model")
+        self.parser_predict.set_defaults(func=self.train)
+
 
         ############
         # evaluate #
@@ -90,22 +105,11 @@ class CommandLineInterface(object):
                                                         help="Compare for some SMILES and adducts the given CCS value with the value used to create this algoritm.")
 
         self.parser_predict.add_argument("-r", help="reference file name", required=True)
-        self.parser_predict.add_argument("-o", help="prefix for output file name. If not specified, stdout will be used",
+        self.parser_predict.add_argument("-o", help="prefix for output file name (MyFile_). If not specified, stdout will be used",
                                          default="")
 	self.parser_predict.add_argument("-f", help="h5 file containing the datasets used to create this algoritm", required=True)
 	self.parser_predict.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)", default=None)
         self.parser_predict.set_defaults(func=self.compare)
-
-	#############
-	# create h5 #
-	#############
-
-	self.parser_predict = self.subparser.add_parser("create_h5",
-                                                        help="Create the h5 file of all the datasets used to create the algorithm.")
-
-        self.parser_predict.add_argument("-p", help="Path to the datatsets template", required=True)
-	self.parser_predict.set_defaults(func=self.create_h5)
-
 
 
         #########
@@ -125,58 +129,7 @@ class CommandLineInterface(object):
             args.func(args)
     
     
-    def create_h5(self, args):
-        print("Starting creating tool with the following args:" + str(args))
-        if not path.isdir(args.p):
-            raise IOError("Path of templates cannot be found.")
 
-	create_datasets_compil(args.p)
-
-
-    def output_global_stats(self, ccs_ref, ccs_pred):
-	
-	ccs_ref = np.array(ccs_ref)
-	ccs_pred = np.array(ccs_pred)
-	
-	mean = round(mean_absolute_error(ccs_ref, ccs_pred),2)
-        med = round(median_absolute_error(ccs_ref, ccs_pred),2)
-        rel_mean = round(relative_mean(ccs_ref, ccs_pred),2)
-        rel_med = round(relative_median(ccs_ref, ccs_pred),2)
-        r2 = round(r2_score(ccs_ref, ccs_pred),2)
-        perc_90 = round(percentile_90(ccs_ref, ccs_pred),2)
-        perc_95 = round(percentile_95(ccs_ref, ccs_pred),2)
-
-        print("---------------------------------")
-        print("     Absolute Mean  :  {} ".format(mean))
-        print("     Relative Mean  :  {}% ".format(rel_mean))   
-        print("    Absolute Median :  {} ".format(med))   
-        print("    Relative Median :  {}% ".format(rel_med))  
-        print("           R2       :  {} ".format(r2))  
-        print("     90e Percentile :  {}% ".format(perc_90))
-        print("     95e Percentile :  {}% ".format(perc_95))  
-        print("---------------------------------")
-
-
-
-    def read_datasets(self, h5_path, dataset_name):
-    # Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
-      
-	# Create df
-	pd_df = pd.DataFrame(columns=["Compound", "CAS", "SMILES", "Mass", "Adducts", "CCS", "Metadata"])
-	
-	# Open reference file and retrieve data corresponding to the dataset name 
-	f = h5.File(h5_path, 'r')
-	pd_df["Compound"] = f[dataset_name+'/Compound']
-	pd_df["CAS"] = f[dataset_name+'/CAS']
-	pd_df["SMILES"] = f[dataset_name+'/SMILES']
-	pd_df["Mass"] = f[dataset_name+'/Mass']
-	pd_df["Adducts"] = f[dataset_name+'/Adducts']
-	pd_df["CCS"] = f[dataset_name+'/CCS']
-	pd_df["Metadata"] = f[dataset_name+'/Metadata']
-	f.close()
-
-	return pd_df
-	
 
 
     def compare(self, args):
@@ -207,16 +160,16 @@ class CommandLineInterface(object):
 	# print general stats on the compaison
 	print("--> Starting iterating on the dataset list of comparaison")
 	for i in dt_list:
-	    df_dt = self.read_datasets(args.f, i)
+	    df_dt = read_datasets(args.f, i)
 	    smiles = df_dt["SMILES"] 
 	    adducts = df_dt["Adducts"]
 	    ccs = df_dt["CCS"] 
 
 	    print("--> h5 file of datasets : red")
-	    self.output_results(args.r, smiles, adducts, ccs, Ofile_name+i+".txt")
+	    output_results(args.r, smiles, adducts, ccs, Ofile_name+i+".txt")
 	    print("--> output table : generated")
 
-	    smiles_u, adducts_u, ccs_u = self.read_reference_table(args.r)
+	    smiles_u, adducts_u, ccs_u = read_reference_table(args.r)
 	    ccs_user = []
 	    ccs_ref = []
 	    for j, smi in enumerate(smiles):
@@ -237,10 +190,8 @@ class CommandLineInterface(object):
                 print("{} dataset :".format(i))
 		print("=> {} molecules used for comparaison".format(len(ccs_user)))
 	        print("--------Comparaison stats--------")
-                self.output_global_stats(ccs_ref, ccs_user)
+                output_global_stats(ccs_ref, ccs_user)
 
-	
-	
 	
 
     
@@ -265,7 +216,7 @@ class CommandLineInterface(object):
                                    adduct_encoder_file=path.join(args.m, "adducts_encoder.json"),
                                    smiles_encoder_file=path.join(args.m, "smiles_encoder.json"))
 
-        X_smiles, X_adducts, X_ccs = self.read_reference_table(args.r)
+        X_smiles, X_adducts, X_ccs = read_reference_table(args.r)
         ccs_pred = model.predict(X_smiles, X_adducts)
 
 	ccs_pred = np.array([i[0] for i in ccs_pred])
@@ -281,10 +232,10 @@ class CommandLineInterface(object):
 	else:
 	    Ofile_name = None
 
-        self.output_results(args.r, X_smiles, X_adducts, ccs_pred, Ofile_name)
+        output_results(args.r, X_smiles, X_adducts, ccs_pred, Ofile_name)
 
 	print("-----------Model stats-----------")
-	self.output_global_stats(X_ccs, ccs_pred)
+	output_global_stats(X_ccs, ccs_pred)
 	
 
 
@@ -308,7 +259,7 @@ class CommandLineInterface(object):
                                    adduct_encoder_file=path.join(args.m, "adducts_encoder.json"),
                                    smiles_encoder_file=path.join(args.m, "smiles_encoder.json"))
         
-        X_smiles, X_adducts = self.read_input_table(args.i)
+        X_smiles, X_adducts = read_input_table(args.i)
         ccs_pred = model.predict(X_smiles, X_adducts)
 
 	ccs_pred = np.array([i[0] for i in ccs_pred])
@@ -318,73 +269,217 @@ class CommandLineInterface(object):
 	else:
 	    Ofile_name = None
         
-	self.output_results(args.i, X_smiles, X_adducts, ccs_pred, Ofile_name)
-
-        
+	output_results(args.i, X_smiles, X_adducts, ccs_pred, Ofile_name)
 
 
-    def read_input_table(self, file_name):
-        if file_name[-4:] == ".csv":
-            table = pd.read_csv(file_name, sep=",", header=0)
-        elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
-            table = pd.read_excel(file_name, header=0)
-        print(list(table.columns.values))
-        if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
-            raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
-                             "use the provided template if needed.")
-        table = filter_data(table)
-        smiles = np.array(table['SMILES'])
-        adducts = np.array(table['Adducts'])
-        return smiles, adducts
 
-
-    def read_reference_table(self, file_name):
-    # Useful to read a reference table containing the ccs values corresponding to SMILES and adducts 
-   
-        if file_name[-4:] == ".csv":
-            table = pd.read_csv(file_name, sep=",", header=0)
-        elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
-            table = pd.read_excel(file_name, header=0)
-        print(list(table.columns.values))
-        if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts", "CCS"]):
-            raise ValueError("Supplied file must contain at leat 3 columns named 'SMILES', 'Adducts' and 'CCS'. "
-                             "use the provided template if needed.")
-        table = filter_data(table)
-	ccs = np.array(table['CCS'])
-        smiles = np.array(table['SMILES'])
-        adducts = np.array(table['Adducts'])
-        return smiles, adducts, ccs
-
-    def output_results(self, Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
-	if Ifile_name[-4:] == ".csv":
-            table = pd.read_csv(Ifile_name, sep=",", header=0)
-        elif Ifile_name[-5:] == ".xlsx" or Ifile_name[-4:] == ".xls":
-            table = pd.read_excel(Ifile_name, header=0)
-        print(list(table.columns.values))
-
-	if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
-            raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
-                             "use the provided template if needed.")
-
-	out_df = table.assign(CCS_pred=pd.Series(np.zeros(len(table)), index=table.index))	
-	for idx, row in enumerate(out_df.itertuples()):
-	    for i, j in enumerate(smiles):
-		if row.SMILES == j and row.Adducts == adducts[i]:
-		    out_df.iloc[idx, -1] = ccs_pred[i]
-	        elif row.SMILES != j and row.Adducts != adducts[i] and out_df.iloc[idx, -1] == 0:
-		    out_df.iloc[idx, -1] = "-" 
+    def train(self, args):
+	print("Starting prediction tool with the following args:" + str(args))
+        if not path.isdir(args.o):
+            raise IOError("Directory for output model cannot be found")
+	if not path.isfile(args.f):
+            raise IOError("h5 file of source datasets cannot be found")
+        if not path.isfile(args.mtrain):
+            raise IOError("MetCCS train template files cannot be found")
+	if not path.isfile(args.mtestA):
+            raise IOError("MetCCS Agilent test template files cannot be found")
+	if not path.isfile(args.mtestW):
+            raise IOError("MetCCS Waters test template files cannot be found")
+        if not path.isfile(args.p):
+            raise IOError("PNNL template file cannot be found")
+        if not path.isfile(args.mcl):
+            raise IOError("McLean template file cannot be found")
+	if not path.isfile(args.c):
+            raise IOError("CBM2018 template file cannot be found")
 	
-	pd.options.display.max_colwidth = 2000	
-	out_df_string = out_df.to_string(header=True)
+	# Initialize lists
+	training_datasets = []
+	testing_datasets = []
+	dt_list = []
+	name_test_dataset = []	
 	
-	if Ofile_name == None:
-            sys.stdout.write(out_df_string)
-        else:
-            f = open(Ofile_name, 'w')
-            f.write(out_df.to_string(header=True).encode('utf-8'))
-            f.close
+	date = datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M_") # 2018-05-25_14h40_
+	
+	# ---> Exception !!!
+	# MetCCS datasets are the only possible exception to the 80-20 rule
+
+	# Load source datasets according to given args	
+	if args.mtrain not None:
+	    for d in ["MetCCS_pos", "MetCCS_neg"]:
+		df_dt = read_datasets(args.f, d)
+                smiles = df_dt["SMILES"]
+                adducts = df_dt["Adducts"]
+                ccs = df_dt["CCS"]
+		training_datasets.append([smiles, adducts, ccs])
+
+	if args.mtestA not None:
+	    dt_list.extend(["Agilent_pos", "Agilent_neg"])
+	else:
+	    for d in ["Agilent_pos", "Agilent_neg"]:
+                df_dt = read_datasets(args.f, d)
+                smiles = df_dt["SMILES"]
+                adducts = df_dt["Adducts"]
+                ccs = df_dt["CCS"]
+                testing_datasets.append([smiles, adducts, ccs])
+	    name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
+
+	if args.mtestW not None:
+	    dt_list.extend(["Waters_pos", "Waters_neg"])
+	else:
+	    for d in ["Waters_pos", "Waters_neg"]:
+                df_dt = read_datasets(args.f, d)
+                smiles = df_dt["SMILES"]
+                adducts = df_dt["Adducts"]
+                ccs = df_dt["CCS"]
+                testing_datasets.append([smiles, adducts, ccs])
+	    name_test_dataset.extend(["Waters_pos", "Waters_neg"])
+
+	if args.p not None:
+	    dt_list.append("PNL")
+	    
+	if args.mcl not None:
+	    dt_list.append("McLean")
+	    
+	if args.c not None:
+            dt_list.append("CBM")
+	    
+        # Divide source dataset(s) by this rule : 80% in train, 20% in test
+	for d in dt_list:
+	    name_test_dataset.append(d)
+            data = read_datasets(args.f, d)
+            train = data.sample(frac=0.8)
+            test = data.drop(train.index)
+	    
+	    train_smiles = train["SMILES"]
+	    train_adducts = train["Adducts"]
+	    train_ccs = train["CCS"]
+
+	    test_smiles = test["SMILES"] 
+	    test_adducts = test["Adducts"]
+	    test_ccs = test["CCS"]
+            
+	    training_datasets.append([train_smiles, test_adducts, train_ccs])
+	    testing_datasets.append([test_smiles, test_adducts, test_ccs])
+            print("\tTrain: {}".format(train.shape))
+            print("\tTest: {}".format(test.shape))
 	
 	
+	# Load personnal dataset(s) given by -nd arg
+	if args.nd not None:
+	    new_datasets = args.nd.split(",")
+
+	# Divide new dataset(s) by this rule : 80% in train, 20% in test
+	for f in new_datasets:
+	    name_test_dataset.append(f.split("/")[-1].split(".")[0])
+	    smiles, adducts, ccs = read_reference_table(f)
+
+	    # Seed for shuffling
+	    np.random.seed(13)
+	    
+	    mask_train = np.zeros(len(smiles), dtype=int)
+	    mask_train[:int(len(smiles)*0.8)] = 1
+	    np.random.shuffle(mask_train)
+	    mask_test = 1-mask_train
+	    mask_train = mask_train.astype(bool)
+	    mask_test = mask_test.astype(bool)
+
+    	    train_smiles = smiles[mask_train]
+            train_adducts = adducts[mask_train]
+            train_ccs = ccs[mask_train]
+
+            test_smiles = smiles[mask_test]
+            test_adducts = adducts[mask_test]
+            test_ccs = ccs[mask_test]
+    	    
+    	    training_datasets.append([train_smiles, test_adducts, train_ccs])
+            testing_datasets.append([test_smiles, test_adducts, test_ccs])
+
+
+	# Format training_dataset arrays for learning
+	training_datasets = np.concatenate(training_datasets, axis=1)
+
+	smiles = training_datasets[0] 
+	adducts = training_datasets[1]
+	ccs = training_datasets[2]
+
+	# Divide training data by this rule : 90% in train, 10% in validation set
+	mask_t = np.zeros(len(smiles), dtype=int)
+        mask_t[:int(len(smiles)*0.9)] = 1
+        np.random.shuffle(mask_t)
+        mask_v = 1-mask_t
+        mask_t = mask_t.astype(bool)
+        mask_v = mask_v.astype(bool)
+
+        X1_train = smiles[mask_t]
+        X2_train = adducts[mask_t]
+        Y_train = ccs[mask_t]
+
+        X1_valid = smiles[mask_v]
+        X2_valid = adducts[mask_v]
+        Y_valid = ccs[mask_v]
+
+	# Format testing_datasets (smiles and adducts) to include them in mappers creation
+	test_concat = np.concatenate(testing_datasets)
+	X1_test = test_concat[0]
+	X2_test = test_concat[1]
+
+
+	# Import DeepCCS and initialize model
+	from DeepCCS.model import DeepCCS
+        new_model = DeepCCS.DeepCCSModel()
+
+	new_model.fit_smiles_encoder(X1_train+X1_valid+X1_test)
+	new_model.fit_adducts_encoder(X2_train+X2_valid+X2_test)
+
+
+	# Encode smiles and adducts
+	if not new_model._is_fit:
+            raise ValueError("Model must be load or fit first")
+
+	X1_train_encoded = new_model.smiles_encoder.transform(X1_train)
+	X1_valid_encoded = new_model.smiles_encoder.transform(X1_valid)
+
+	X2_train_encoded = new_model.adducts_encoder.transform(X2_train)
+        X2_valid_encoded = new_model.adducts_encoder.transform(X2_valid)
+
+
+	# Create model
+	if not new_model._is_fit:
+            raise ValueError("Model must be load or fit first")
+
+	new_model.create_model()
+	
+	model_file = args.o+"/"+date+".model"
+	model_checkpoint = ModelCheckpoint(model_file, save_best_only=True, save_weights_only=True)
+
+	# Train model
+	new_model.train_model(X1_train_encoded, X2_train_encoded, Y_train, X1_valid_encoded, X2_valid_encoded, Y_valid, args.nepochs)
+	
+	# Save model
+	new_model.save_model_to_file(date+model.h5, date+adduct_encoder.json, date+smiles_encoder.json)
+	
+
+	# Test the new model on each testing datasets independantly and output metrics on the performance of the model
+	if not new_model._is_fit:
+	    raise ValueError("Model must be load or fit first")
+	
+	for i, dt in enumerate(testing_datasets):
+	    dt_name = name_test_dataset[i]
+	    X1 = dt[0] 
+	    X2 = dt[1]
+	    Y = dt[2]
+	
+	    X1_encoded = new_model.smiles_encoder.transform(X1)
+	    X2_encoded = new_model.adducts_encoder.transform(X2)
+
+	    Y_pred = new_model.predict(X1_encoded, X2_encoded)
+	    Y_pred = np.array([i[0] for i in Y_pred])
+	    
+	    print("-->"+dt_name+":")
+	    print("-----------Model stats-----------")
+	    output_global_stats(Y, Y_pred)
+	    
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
