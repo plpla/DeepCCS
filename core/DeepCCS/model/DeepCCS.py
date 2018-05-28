@@ -25,6 +25,13 @@ import logging
 import numpy as np
 from keras.models import load_model, save_model
 from .encoders import SmilesToOneHotEncoder, AdductToOneHotEncoder
+from keras.layers import Dense, Dropout, Flatten, Input, Concatenate, Embedding
+from keras.layers import Conv1D, MaxPooling1D,  Activation, BatchNormalization, Flatten
+import keras
+from keras.models import Model
+
+
+
 
 class DeepCCSModel(object):
 
@@ -35,11 +42,11 @@ class DeepCCSModel(object):
         self._is_fit = False
 
     def fit_smiles_encoder(self, X):
-	self.smiles_encoder = SmilesToOneHotEncoder.fit(X)
+	self.smiles_encoder.fit(X)
 
 
-    def fit_adducts_encoder(self, X):
-	self.adduct_encoder = AdductToOneHotEncoder.fit(X)
+    def fit_adduct_encoder(self, X):
+	self.adduct_encoder.fit(X)
 
 
     def load_model_from_file(self, filename, adduct_encoder_file, smiles_encoder_file):
@@ -63,17 +70,16 @@ class DeepCCSModel(object):
         y_pred = self.model.predict([X_smiles, X_adducts])
         return y_pred
 
-    def create_model():
+    def create_model(self):
 	"""
         Builds a neural net using a set of arguments
         """
-        smile_input_layer = Input(shape=(250, input_width=len(self.smiles_encoder)), name="smile")
-	
-	conv = Conv1D(conv_width=64, kernel_size=4, activation='relu', kernel_initializer='normal')(smile_input_layer)
+        smile_input_layer = Input(shape=(250, len(self.smiles_encoder.converter)), name="smile")	
+	conv = Conv1D(64, kernel_size=4, activation='relu', kernel_initializer='normal')(smile_input_layer)
         previous = conv
 	
 	for i in range(7-1):
-            conv = Conv1D(conv_width=64, kernel_size=4, activation='relu', kernel_initializer='normal')(previous)
+            conv = Conv1D(64, kernel_size=4, activation='relu', kernel_initializer='normal')(previous)
             if i == 7-2:
                 pool = MaxPooling1D(pool_size=2, strides=2)(conv)
             else:
@@ -83,18 +89,18 @@ class DeepCCSModel(object):
         flat = Flatten()(previous)
         previous = flat
 
-        adduct_input_layer = Input(shape=(len(self.adducts_mapper),), name="adduct")
+        adduct_input_layer = Input(shape=(len(self.adduct_encoder.converter),), name="adduct")
         
 	remix_layer = keras.layers.concatenate([previous, adduct_input_layer], axis=-1)
         previous = remix_layer
 
         for i in range(2):
-            dense_layer = Dense(dense_width=384, activation="relu", kernel_initializer='normal')(previous)
+            dense_layer = Dense(384, activation="relu", kernel_initializer='normal')(previous)
             previous = dense_layer
 
-        output = Dense(dense_width=1, activation="linear")(previous)
+        output = Dense(1, activation="linear")(previous)
         
-	opt = getattr(keras.optimizers, optimizer='adam')
+	opt = getattr(keras.optimizers, 'adam')
         opt = opt(lr=0.0001)
         model = Model(input=[smile_input_layer, adduct_input_layer], outputs=output)
         model.compile(optimizer=opt, loss='mean_squared_error')
@@ -102,7 +108,7 @@ class DeepCCSModel(object):
 	self.model = model
 
 
-    def train_model(X1_train, X2_train, Y_train, X1_valid, X2_valid, Y_valid, nbr_epochs):
+    def train_model(self, X1_train, X2_train, Y_train, X1_valid, X2_valid, Y_valid, model_checkpoint, nbr_epochs):
 
 	self.model.fit([X1_train, X2_train], Y_train, epochs=nbr_epochs, batch_size=2, 
 			validation_data=([X1_valid, X2_valid], Y_valid), verbose=1, callbacks=[model_checkpoint])

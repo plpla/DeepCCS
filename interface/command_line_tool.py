@@ -30,6 +30,7 @@ import pandas as pd
 from DeepCCS.utils import *
 import numpy as np
 from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
+from keras.callbacks import TensorBoard, ModelCheckpoint
 
 DESCRIPTION = "DeepCCS: CCS prediction from SMILES using deep neural network"
 VERSION = "0.0.1"
@@ -76,11 +77,11 @@ class CommandLineInterface(object):
 	self.parser_predict.add_argument("-p", help="PNNL dataset to create the model", default=None)
 	self.parser_predict.add_argument("-c", help="CBM2018 dataset to create the model", default=None)
 	self.parser_predict.add_argument("-mcl", help="McLean dataset to create the model", default=None)	
-	self.parser_predict.add_argument("-f", help="h5 file containing all source datasets", default=None)
+	self.parser_predict.add_argument("-f", help="h5 file containing all source datasets", required=True)
 
         self.parser_predict.add_argument("-nd", help="New Data to create the model, list of template file (file1.csv,file2.csv,...)", default=None)
         self.parser_predict.add_argument("-nepochs", help="Number of epochs", default=150)
-        self.parser_predict.add_argument("-o", help="Output directory for model and mappers", default="new_model")
+        self.parser_predict.add_argument("-o", help="Output directory for model and mappers", default="./")
         self.parser_predict.set_defaults(func=self.train)
 
 
@@ -210,7 +211,7 @@ class CommandLineInterface(object):
         if not path.isfile(path.join(args.m, "smiles_encoder.json")):
             raise IOError("smiles_encoder.json is missing from the model directory")
          
-        from DeepCCS.model import DeepCCS
+        from DeepCCS.model import DeepCCS # change place
         model = DeepCCS.DeepCCSModel()
         model.load_model_from_file(filename=path.join(args.m, "model.h5"),
                                    adduct_encoder_file=path.join(args.m, "adducts_encoder.json"),
@@ -279,18 +280,18 @@ class CommandLineInterface(object):
             raise IOError("Directory for output model cannot be found")
 	if not path.isfile(args.f):
             raise IOError("h5 file of source datasets cannot be found")
-        if not path.isfile(args.mtrain):
-            raise IOError("MetCCS train template files cannot be found")
-	if not path.isfile(args.mtestA):
-            raise IOError("MetCCS Agilent test template files cannot be found")
-	if not path.isfile(args.mtestW):
-            raise IOError("MetCCS Waters test template files cannot be found")
-        if not path.isfile(args.p):
-            raise IOError("PNNL template file cannot be found")
-        if not path.isfile(args.mcl):
-            raise IOError("McLean template file cannot be found")
-	if not path.isfile(args.c):
-            raise IOError("CBM2018 template file cannot be found")
+       # if not path.isfile(args.mtrain):
+       #     raise IOError("MetCCS train template files cannot be found")
+#	if not path.isfile(args.mtestA):
+#            raise IOError("MetCCS Agilent test template files cannot be found")
+#	if not path.isfile(args.mtestW):
+#            raise IOError("MetCCS Waters test template files cannot be found")
+#        if not path.isfile(args.p):
+#            raise IOError("PNNL template file cannot be found")
+#        if not path.isfile(args.mcl):
+#            raise IOError("McLean template file cannot be found")
+#	if not path.isfile(args.c):
+#            raise IOError("CBM2018 template file cannot be found")
 	
 	# Initialize lists
 	training_datasets = []
@@ -304,15 +305,16 @@ class CommandLineInterface(object):
 	# MetCCS datasets are the only possible exception to the 80-20 rule
 
 	# Load source datasets according to given args	
-	if args.mtrain not None:
+	if args.mtrain == "y":
 	    for d in ["MetCCS_pos", "MetCCS_neg"]:
 		df_dt = read_datasets(args.f, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
 		training_datasets.append([smiles, adducts, ccs])
+	    name_test_dataset.extend(["MetCCS_pos", "MetCCS_neg"])
 
-	if args.mtestA not None:
+	if args.mtestA == "y":
 	    dt_list.extend(["Agilent_pos", "Agilent_neg"])
 	else:
 	    for d in ["Agilent_pos", "Agilent_neg"]:
@@ -323,7 +325,7 @@ class CommandLineInterface(object):
                 testing_datasets.append([smiles, adducts, ccs])
 	    name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
 
-	if args.mtestW not None:
+	if args.mtestW == "y":
 	    dt_list.extend(["Waters_pos", "Waters_neg"])
 	else:
 	    for d in ["Waters_pos", "Waters_neg"]:
@@ -334,13 +336,13 @@ class CommandLineInterface(object):
                 testing_datasets.append([smiles, adducts, ccs])
 	    name_test_dataset.extend(["Waters_pos", "Waters_neg"])
 
-	if args.p not None:
+	if args.p == "y":
 	    dt_list.append("PNL")
 	    
-	if args.mcl not None:
+	if args.mcl == "y":
 	    dt_list.append("McLean")
 	    
-	if args.c not None:
+	if args.c == "y":
             dt_list.append("CBM")
 	    
         # Divide source dataset(s) by this rule : 80% in train, 20% in test
@@ -358,41 +360,45 @@ class CommandLineInterface(object):
 	    test_adducts = test["Adducts"]
 	    test_ccs = test["CCS"]
             
-	    training_datasets.append([train_smiles, test_adducts, train_ccs])
+	    training_datasets.append([train_smiles, train_adducts, train_ccs])
 	    testing_datasets.append([test_smiles, test_adducts, test_ccs])
             print("\tTrain: {}".format(train.shape))
             print("\tTest: {}".format(test.shape))
 	
 	
 	# Load personnal dataset(s) given by -nd arg
-	if args.nd not None:
+	if args.nd  == "y":
 	    new_datasets = args.nd.split(",")
+	else:
+	    new_datasets = []
 
 	# Divide new dataset(s) by this rule : 80% in train, 20% in test
-	for f in new_datasets:
-	    name_test_dataset.append(f.split("/")[-1].split(".")[0])
-	    smiles, adducts, ccs = read_reference_table(f)
+	if len(new_datasets) >=0 :
+    	    for f in new_datasets:
+	        name_test_dataset.append(f.split("/")[-1].split(".")[0])
+      	        smiles, adducts, ccs = read_reference_table(f)
 
-	    # Seed for shuffling
-	    np.random.seed(13)
+	        # Seed for shuffling
+	        np.random.seed(13)
 	    
-	    mask_train = np.zeros(len(smiles), dtype=int)
-	    mask_train[:int(len(smiles)*0.8)] = 1
-	    np.random.shuffle(mask_train)
-	    mask_test = 1-mask_train
-	    mask_train = mask_train.astype(bool)
-	    mask_test = mask_test.astype(bool)
+	        mask_train = np.zeros(len(smiles), dtype=int)
+	        mask_train[:int(len(smiles)*0.8)] = 1
+	        np.random.shuffle(mask_train)
+	        mask_test = 1-mask_train
+	        mask_train = mask_train.astype(bool)
+	        mask_test = mask_test.astype(bool)
 
-    	    train_smiles = smiles[mask_train]
-            train_adducts = adducts[mask_train]
-            train_ccs = ccs[mask_train]
+    	        train_smiles = smiles[mask_train]
+                train_adducts = adducts[mask_train]
+                train_ccs = ccs[mask_train]
 
-            test_smiles = smiles[mask_test]
-            test_adducts = adducts[mask_test]
-            test_ccs = ccs[mask_test]
+                test_smiles = smiles[mask_test]
+                test_adducts = adducts[mask_test]
+                test_ccs = ccs[mask_test]
     	    
-    	    training_datasets.append([train_smiles, test_adducts, train_ccs])
-            testing_datasets.append([test_smiles, test_adducts, test_ccs])
+    	        training_datasets.append([train_smiles, test_adducts, train_ccs])
+                testing_datasets.append([test_smiles, test_adducts, test_ccs])
+
 
 
 	# Format training_dataset arrays for learning
@@ -418,8 +424,9 @@ class CommandLineInterface(object):
         X2_valid = adducts[mask_v]
         Y_valid = ccs[mask_v]
 
+	
 	# Format testing_datasets (smiles and adducts) to include them in mappers creation
-	test_concat = np.concatenate(testing_datasets)
+	test_concat = np.concatenate(testing_datasets, axis=1)
 	X1_test = test_concat[0]
 	X2_test = test_concat[1]
 
@@ -428,32 +435,29 @@ class CommandLineInterface(object):
 	from DeepCCS.model import DeepCCS
         new_model = DeepCCS.DeepCCSModel()
 
-	new_model.fit_smiles_encoder(X1_train+X1_valid+X1_test)
-	new_model.fit_adducts_encoder(X2_train+X2_valid+X2_test)
-
+	
+	
+	new_model.fit_smiles_encoder(np.concatenate([X1_train, X1_valid, X1_test]))
+	new_model.fit_adduct_encoder(np.concatenate([X2_train, X2_valid, X2_test]))
+	print(new_model.smiles_encoder)
 
 	# Encode smiles and adducts
-	if not new_model._is_fit:
-            raise ValueError("Model must be load or fit first")
-
 	X1_train_encoded = new_model.smiles_encoder.transform(X1_train)
 	X1_valid_encoded = new_model.smiles_encoder.transform(X1_valid)
 
-	X2_train_encoded = new_model.adducts_encoder.transform(X2_train)
-        X2_valid_encoded = new_model.adducts_encoder.transform(X2_valid)
+	X2_train_encoded = new_model.adduct_encoder.transform(X2_train)
+        X2_valid_encoded = new_model.adduct_encoder.transform(X2_valid)
 
 
-	# Create model
-	if not new_model._is_fit:
-            raise ValueError("Model must be load or fit first")
-
+	# Create model structure
 	new_model.create_model()
 	
 	model_file = args.o+"/"+date+".model"
 	model_checkpoint = ModelCheckpoint(model_file, save_best_only=True, save_weights_only=True)
 
 	# Train model
-	new_model.train_model(X1_train_encoded, X2_train_encoded, Y_train, X1_valid_encoded, X2_valid_encoded, Y_valid, args.nepochs)
+	new_model.train_model(X1_train_encoded, X2_train_encoded, Y_train, 
+				X1_valid_encoded, X2_valid_encoded, Y_valid, model_checkpoint, int(args.nepochs))
 	
 	# Save model
 	new_model.save_model_to_file(date+model.h5, date+adduct_encoder.json, date+smiles_encoder.json)

@@ -87,12 +87,12 @@ class SmilesToOneHotEncoder(BaseEncoder):
         X : array of smiles
         """
         splitted_smiles = [self._split_smiles(s) for s in X]
-        padded_splitted_smiles = [self._pad_smiles(s) for s in splitted_smiles]
-        lengths = [len(s) for s in padded_splitted_smiles]
+	padded_splitted_smiles = [self._pad_smiles(s) for s in splitted_smiles]
+	lengths = [len(s) for s in padded_splitted_smiles]
         chars = [char for s in padded_splitted_smiles for char in s]
 
         if len(set(lengths)) != 1:
-            print(lengths)
+            #print(lengths)
             raise ValueError("Items in X must be all of the same length")
         else:
             self._max_length = lengths[0]
@@ -140,6 +140,7 @@ class SmilesToOneHotEncoder(BaseEncoder):
 	return splitted_smiles
 
     def _pad_smiles(self, smiles, padding_char=" "):
+	self._max_length = MAX_SMILES_LENGTH
         to_pad = int((self._max_length - len(smiles)) / 2)
         s_padded_left = ([padding_char] * to_pad) + smiles
         return s_padded_left + ([padding_char] * (self._max_length - len(s_padded_left)))
