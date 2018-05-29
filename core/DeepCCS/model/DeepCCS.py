@@ -31,8 +31,6 @@ import keras
 from keras.models import Model
 
 
-
-
 class DeepCCSModel(object):
 
     def __init__(self):
@@ -57,7 +55,7 @@ class DeepCCSModel(object):
         logging.debug("Model loaded from file {}".format(filename))
 
     def save_model_to_file(self, filename, adduct_encoder_file, smiles_encoder_file):
-        save_model(filename)
+        save_model(self, filename)
         self.adduct_encoder.save_encoder(adduct_encoder_file)
         self.smiles_encoder.save_encoder(smiles_encoder_file)
 

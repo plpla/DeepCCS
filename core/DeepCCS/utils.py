@@ -129,10 +129,11 @@ def output_results(Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
         
     if Ofile_name == None:
         sys.stdout.write(out_df_string)
-    else:
-        f = open(Ofile_name, 'w')
-        f.write(out_df.to_string(header=True).encode('utf-8'))
-        f.close
+    else: 
+	out_df.to_csv(Ofile_name, encoding='utf-8', index=False)
+        #f = open(Ofile_name, 'w')
+        #f.write(out_df.to_string(header=True).encode('utf-8'))
+        #f.close
 
 
 

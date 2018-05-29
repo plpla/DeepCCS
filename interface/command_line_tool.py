@@ -460,7 +460,7 @@ class CommandLineInterface(object):
 				X1_valid_encoded, X2_valid_encoded, Y_valid, model_checkpoint, int(args.nepochs))
 	
 	# Save model
-	new_model.save_model_to_file(date+model.h5, date+adduct_encoder.json, date+smiles_encoder.json)
+	new_model.save_model_to_file(date+"model.h5", date+"adduct_encoder.json", date+"smiles_encoder.json")
 	
 
 	# Test the new model on each testing datasets independantly and output metrics on the performance of the model
