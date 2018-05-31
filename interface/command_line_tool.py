@@ -363,7 +363,7 @@ class CommandLineInterface(object):
 	
 	
 	# Load personnal dataset(s) given by -nd arg
-	if args.nd not None:
+	if args.nd != None:
 	    new_datasets = args.nd.split(",")
 	else:
 	    new_datasets = []
@@ -454,7 +454,7 @@ class CommandLineInterface(object):
 				X1_valid_encoded, X2_valid_encoded, Y_valid, model_checkpoint, int(args.nepochs))
 	
 	# Save model
-	new_model.save_model_to_file(date+"model.h5", date+"adducts_encoder.json", date+"smiles_encoder.json")
+	new_model.save_model_to_file(args.o+"/"+date+"model.h5", args.o+"/"+date+"adducts_encoder.json", args.o+"/"+date+"smiles_encoder.json")
 	
 
 	# Test the new model on each testing datasets independantly and output metrics on the performance of the model
