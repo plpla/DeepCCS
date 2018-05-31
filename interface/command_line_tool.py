@@ -465,6 +465,8 @@ class CommandLineInterface(object):
 	new_model.train_model(X1_train_encoded, X2_train_encoded, Y_train, 
 				X1_valid_encoded, X2_valid_encoded, Y_valid, model_checkpoint, int(args.nepochs))
 	
+	new_model.model.load_weights(model_file)	
+
 	# Save model
 	new_model.save_model_to_file(args.o+"/"+date+"model.h5", args.o+"/"+date+"adducts_encoder.json", args.o+"/"+date+"smiles_encoder.json")
 	
