@@ -31,6 +31,8 @@ from DeepCCS.utils import *
 import numpy as np
 from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 from keras.callbacks import TensorBoard, ModelCheckpoint
+from DeepCCS.model import DeepCCS
+
 
 DESCRIPTION = "DeepCCS: CCS prediction from SMILES using deep neural network"
 VERSION = "0.0.1"
@@ -211,7 +213,7 @@ class CommandLineInterface(object):
         if not path.isfile(path.join(args.m, "smiles_encoder.json")):
             raise IOError("smiles_encoder.json is missing from the model directory")
          
-        from DeepCCS.model import DeepCCS # change place
+
         model = DeepCCS.DeepCCSModel()
         model.load_model_from_file(filename=path.join(args.m, "model.h5"),
                                    adduct_encoder_file=path.join(args.m, "adducts_encoder.json"),
@@ -254,7 +256,7 @@ class CommandLineInterface(object):
         if not path.isfile(path.join(args.m, "smiles_encoder.json")):
             raise IOError("smiles_encoder.json is missing from the model directory")
 
-        from DeepCCS.model import DeepCCS
+
         model = DeepCCS.DeepCCSModel()
         model.load_model_from_file(filename=path.join(args.m, "model.h5"),
                                    adduct_encoder_file=path.join(args.m, "adducts_encoder.json"),
@@ -280,18 +282,7 @@ class CommandLineInterface(object):
             raise IOError("Directory for output model cannot be found")
 	if not path.isfile(args.f):
             raise IOError("h5 file of source datasets cannot be found")
-       # if not path.isfile(args.mtrain):
-       #     raise IOError("MetCCS train template files cannot be found")
-#	if not path.isfile(args.mtestA):
-#            raise IOError("MetCCS Agilent test template files cannot be found")
-#	if not path.isfile(args.mtestW):
-#            raise IOError("MetCCS Waters test template files cannot be found")
-#        if not path.isfile(args.p):
-#            raise IOError("PNNL template file cannot be found")
-#        if not path.isfile(args.mcl):
-#            raise IOError("McLean template file cannot be found")
-#	if not path.isfile(args.c):
-#            raise IOError("CBM2018 template file cannot be found")
+
 	
 	# Initialize lists
 	training_datasets = []
@@ -304,7 +295,7 @@ class CommandLineInterface(object):
 	# ---> Exception !!!
 	# MetCCS datasets are the only possible exception to the 80-20 rule
 
-	# Load source datasets according to given args	
+	# Load source datasets according to args	
 	if args.mtrain == "y":
 	    for d in ["MetCCS_pos", "MetCCS_neg"]:
 		df_dt = read_datasets(args.f, d)
@@ -372,19 +363,20 @@ class CommandLineInterface(object):
 	
 	
 	# Load personnal dataset(s) given by -nd arg
-	if args.nd  == "y":
+	if args.nd not None:
 	    new_datasets = args.nd.split(",")
 	else:
 	    new_datasets = []
 
+
+        # Seed for shuffling
+        np.random.seed(13)
+
 	# Divide new dataset(s) by this rule : 80% in train, 20% in test
-	if len(new_datasets) >=0 :
+	if len(new_datasets) > 0 :
     	    for f in new_datasets:
 	        name_test_dataset.append(f.split("/")[-1].split(".")[0])
       	        smiles, adducts, ccs = read_reference_table(f)
-
-	        # Seed for shuffling
-	        np.random.seed(13)
 	    
 	        mask_train = np.zeros(len(smiles), dtype=int)
 	        mask_train[:int(len(smiles)*0.8)] = 1
@@ -437,14 +429,11 @@ class CommandLineInterface(object):
 
 
 	# Import DeepCCS and initialize model
-	from DeepCCS.model import DeepCCS
         new_model = DeepCCS.DeepCCSModel()
-
-	
 	
 	new_model.fit_smiles_encoder(np.concatenate([X1_train, X1_valid, X1_test]))
 	new_model.fit_adduct_encoder(np.concatenate([X2_train, X2_valid, X2_test]))
-	print(new_model.smiles_encoder)
+	print(new_model.smiles_encoder.converter)
 
 	# Encode smiles and adducts
 	X1_train_encoded = new_model.smiles_encoder.transform(X1_train)
@@ -465,7 +454,7 @@ class CommandLineInterface(object):
 				X1_valid_encoded, X2_valid_encoded, Y_valid, model_checkpoint, int(args.nepochs))
 	
 	# Save model
-	new_model.save_model_to_file(date+"model.h5", date+"adduct_encoder.json", date+"smiles_encoder.json")
+	new_model.save_model_to_file(date+"model.h5", date+"adducts_encoder.json", date+"smiles_encoder.json")
 	
 
 	# Test the new model on each testing datasets independantly and output metrics on the performance of the model
