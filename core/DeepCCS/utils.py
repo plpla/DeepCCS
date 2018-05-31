@@ -26,6 +26,7 @@ import logging
 import pandas as pd
 import h5py as h5
 import sys
+from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 
 def filter_data(data_table):
     """

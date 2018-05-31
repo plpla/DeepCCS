@@ -312,10 +312,11 @@ class CommandLineInterface(object):
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
 		training_datasets.append([smiles, adducts, ccs])
-	    name_test_dataset.extend(["MetCCS_pos", "MetCCS_neg"])
+	    
 
 	if args.mtestA == "y":
 	    dt_list.extend(["Agilent_pos", "Agilent_neg"])
+	    name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
 	else:
 	    for d in ["Agilent_pos", "Agilent_neg"]:
                 df_dt = read_datasets(args.f, d)
@@ -327,6 +328,7 @@ class CommandLineInterface(object):
 
 	if args.mtestW == "y":
 	    dt_list.extend(["Waters_pos", "Waters_neg"])
+	    name_test_dataset.extend(["Waters_pos", "Waters_neg"])
 	else:
 	    for d in ["Waters_pos", "Waters_neg"]:
                 df_dt = read_datasets(args.f, d)
@@ -338,12 +340,15 @@ class CommandLineInterface(object):
 
 	if args.p == "y":
 	    dt_list.append("PNL")
+	    name_test_dataset.append("PNL")
 	    
 	if args.mcl == "y":
 	    dt_list.append("McLean")
-	    
+	    name_test_dataset.append("McLean")
+
 	if args.c == "y":
             dt_list.append("CBM")
+	    name_test_dataset.append("CBM")
 	    
         # Divide source dataset(s) by this rule : 80% in train, 20% in test
 	for d in dt_list:
@@ -473,13 +478,11 @@ class CommandLineInterface(object):
 	    X2 = dt[1]
 	    Y = dt[2]
 	
-	    X1_encoded = new_model.smiles_encoder.transform(X1)
-	    X2_encoded = new_model.adducts_encoder.transform(X2)
-
-	    Y_pred = new_model.predict(X1_encoded, X2_encoded)
+	    Y_pred = new_model.predict(X1, X2)
 	    Y_pred = np.array([i[0] for i in Y_pred])
 	    
-	    print("-->"+dt_name+":")
+	    print(" ")
+	    print("> Testing on "+dt_name+" dataset:")
 	    print("-----------Model stats-----------")
 	    output_global_stats(Y, Y_pred)
 	    
