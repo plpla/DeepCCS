@@ -71,15 +71,15 @@ def create_h5(path):
     create_datasets_compil(path)
 
 def create_datasets_compil(path_to_templates):
-    df_MCCS_pos = pd.read_csv(path_to_templates+"/MetCCS1_Template.csv").fillna(" ")
-    df_MCCS_neg = pd.read_csv(path_to_templates+"/MetCCS2_Template.csv").fillna(" ")
-    df_A_pos = pd.read_csv(path_to_templates+"/MetCCS3_Template.csv").fillna(" ")
-    df_A_neg = pd.read_csv(path_to_templates+"/MetCCS4_Template.csv").fillna(" ")
-    df_W_pos = pd.read_csv(path_to_templates+"/MetCCS5_Template.csv").fillna(" ")
-    df_W_neg = pd.read_csv(path_to_templates+"/MetCCS6_Template.csv").fillna(" ")
-    df_PNL = pd.read_csv(path_to_templates+"/PNL_Template.csv").fillna(" ")
-    df_McLean = pd.read_csv(path_to_templates+"/McLean_Lab_Template.csv").fillna(" ")
-    df_CBM = pd.read_csv(path_to_templates+"/CBM2018_Template.csv").fillna(" ")
+    df_MCCS_pos = pd.read_csv(path_to_templates+"/MetCCS1_Template.csv").fillna("")
+    df_MCCS_neg = pd.read_csv(path_to_templates+"/MetCCS2_Template.csv").fillna("")
+    df_A_pos = pd.read_csv(path_to_templates+"/MetCCS3_Template.csv").fillna("")
+    df_A_neg = pd.read_csv(path_to_templates+"/MetCCS4_Template.csv").fillna("")
+    df_W_pos = pd.read_csv(path_to_templates+"/MetCCS5_Template.csv").fillna("")
+    df_W_neg = pd.read_csv(path_to_templates+"/MetCCS6_Template.csv").fillna("")
+    df_PNL = pd.read_csv(path_to_templates+"/PNL_Template.csv").fillna("")
+    df_McLean = pd.read_csv(path_to_templates+"/McLean_Lab_Template.csv").fillna("")
+    df_CBM = pd.read_csv(path_to_templates+"/CBM2018_Template.csv").fillna("")
     print("Templates loaded")
 
     dfs = [df_MCCS_pos, df_MCCS_neg, df_A_pos, df_A_neg, df_W_pos, df_W_neg, df_PNL, df_McLean, df_CBM]
@@ -215,7 +215,8 @@ def read_reference_table(file_name):
     return smiles, adducts, ccs
 
 
-
+#if __name__ == '__main__':
+#    create_datasets_compil("/is2/projects/JC_Elinaf/Data_CCS/")
 
 
 

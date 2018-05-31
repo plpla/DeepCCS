@@ -5,5 +5,5 @@
 MAX_SMILES_LENGTH = 250
 
 #Accepter adducts by DeepCCS.
-ADDUCTS_TO_KEEP = ["M+H", "M+Na", "M-H"]
+ADDUCTS_TO_KEEP = ["M+H", "M+Na", "M-H", "M-2H"]
 

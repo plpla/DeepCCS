@@ -340,8 +340,10 @@ class CommandLineInterface(object):
 	if args.c == "y":
             dt_list.append("CBM")
 	    name_test_dataset.append("CBM")
-	    
-        # Divide source dataset(s) by this rule : 80% in train, 20% in test
+	print(len(training_datasets))    
+        
+	print(dt_list)
+	# Divide source dataset(s) by this rule : 80% in train, 20% in test
 	for d in dt_list:
 	    name_test_dataset.append(d)
             data = read_datasets(args.f, d)
@@ -360,8 +362,10 @@ class CommandLineInterface(object):
 	    testing_datasets.append([test_smiles, test_adducts, test_ccs])
             print("\tTrain: {}".format(train.shape))
             print("\tTest: {}".format(test.shape))
-	
-	
+
+	print(len(training_datasets))
+	print("len testdt {}".format(len(testing_datasets)))
+
 	# Load personnal dataset(s) given by -nd arg
 	if args.nd != None:
 	    new_datasets = args.nd.split(",")
@@ -421,12 +425,17 @@ class CommandLineInterface(object):
         X2_valid = adducts[mask_v]
         Y_valid = ccs[mask_v]
 
+	print("len X1_train  {}".format(len(X1_train)))
+	print("len X1_valid  {}".format(len(X1_valid)))
+	
+
 	
 	# Format testing_datasets (smiles and adducts) to include them in mappers creation
 	test_concat = np.concatenate(testing_datasets, axis=1)
 	X1_test = test_concat[0]
 	X2_test = test_concat[1]
-
+	
+	print("len X1_test  {}".format(len(X1_test)))
 
 	# Import DeepCCS and initialize model
         new_model = DeepCCS.DeepCCSModel()
@@ -448,6 +457,9 @@ class CommandLineInterface(object):
 	
 	model_file = args.o+"/"+date+".model"
 	model_checkpoint = ModelCheckpoint(model_file, save_best_only=True, save_weights_only=True)
+
+	
+	print(new_model.model.summary())
 
 	# Train model
 	new_model.train_model(X1_train_encoded, X2_train_encoded, Y_train, 
