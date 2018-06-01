@@ -33,6 +33,10 @@ from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 from keras.callbacks import TensorBoard, ModelCheckpoint
 from DeepCCS.model import DeepCCS
 
+# Seed for shuffling
+np.random.seed(13)
+
+
 
 DESCRIPTION = "DeepCCS: CCS prediction from SMILES using deep neural network"
 VERSION = "0.0.1"
@@ -373,8 +377,6 @@ class CommandLineInterface(object):
 	    new_datasets = []
 
 
-        # Seed for shuffling
-        np.random.seed(13)
 
 	# Divide new dataset(s) by this rule : 80% in train, 20% in test
 	if len(new_datasets) > 0 :
