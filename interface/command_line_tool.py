@@ -22,7 +22,7 @@
 
 import datetime
 from sys import argv
-from os import path
+from os import path, makedirs
 import h5py as h5
 import argparse
 import logging
@@ -311,8 +311,6 @@ class CommandLineInterface(object):
             raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
         if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
             raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-
-
 	
 	# Initialize lists
 	training_datasets = []
@@ -320,7 +318,12 @@ class CommandLineInterface(object):
 	dt_list = []
 	name_test_dataset = []	
 	
-	date = datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M_") # 2018-05-25_14h40_
+	date = datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M") # 2018-05-25_14h40
+
+        model_directory = args.o+"/"+date
+        if not os.path.exists(model_directory):
+            os.makedirs(model_directory)
+
 	
 	# ---> Exception !!!
 	# MetCCS datasets are the only possible exception to the 80-20 rule
@@ -495,7 +498,7 @@ class CommandLineInterface(object):
 	# Create model structure
 	new_model.create_model()
 	
-	model_file = args.o+"/"+date+".model"
+	model_file = model_directory+"/"+"model_checkpoint.model"
 	model_checkpoint = ModelCheckpoint(model_file, save_best_only=True, save_weights_only=True)
 
 	
@@ -508,7 +511,7 @@ class CommandLineInterface(object):
 	new_model.model.load_weights(model_file)	
 
 	# Save model
-	new_model.save_model_to_file(args.o+"/"+date+"model.h5", args.o+"/"+date+"adducts_encoder.json", args.o+"/"+date+"smiles_encoder.json")
+	new_model.save_model_to_file(model_directory+"/"+"model.h5", model_directory+"/"+"adducts_encoder.json", model_directory+"/"+"smiles_encoder.json")
 	
 
 	# Test the new model on each testing datasets independantly and output metrics on the performance of the model
