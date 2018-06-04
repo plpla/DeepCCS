@@ -79,8 +79,8 @@ class CommandLineInterface(object):
 	
         self.parser_predict = self.subparser.add_parser("train",
                                                         help="Train a new model.")
-        self.parser_predict.add_argument("-ap", help="path to adducts_encoder directory", default="default")
-        self.parser_predict.add_argument("-sp", help="path to smiles_encoder directory", default="default")
+        self.parser_predict.add_argument("-ap", help="path to adducts_encoder directory", default=None)
+        self.parser_predict.add_argument("-sp", help="path to smiles_encoder directory", default=None)
 
 	self.parser_predict.add_argument("-mtrain", help="MetCCS train datasets to create the model", default=None)
 	self.parser_predict.add_argument("-mtestA", help="MetCCS Agilent test datasets to create the model", default=None)
@@ -227,7 +227,7 @@ class CommandLineInterface(object):
         if not path.isfile(path.join(args.mp, "model.h5")):
             raise IOError("Model file is missing from model directory")
         if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
-            raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
+            raise IOError("adducts_encoder.json is missing from the adducts_encoder directory directory")
         if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
             raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
          
@@ -307,11 +307,6 @@ class CommandLineInterface(object):
 	if not path.isfile(args.f):
             raise IOError("h5 file of source datasets cannot be found")
 
-	if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
-            raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
-        if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
-            raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-	
 	# Initialize lists
 	training_datasets = []
 	testing_datasets = []
@@ -321,8 +316,8 @@ class CommandLineInterface(object):
 	date = datetime.datetime.now().strftime("%Y-%m-%d_%Hh%M") # 2018-05-25_14h40
 
         model_directory = args.o+"/"+date
-        if not os.path.exists(model_directory):
-            os.makedirs(model_directory)
+        if not path.exists(model_directory):
+            makedirs(model_directory)
 
 	
 	# ---> Exception !!!
@@ -471,18 +466,28 @@ class CommandLineInterface(object):
 	# Import DeepCCS and initialize model
         new_model = DeepCCS.DeepCCSModel()
 
-	if args.ap None:
+	
+	
+	if args.ap == None:
 	    new_model.fit_adduct_encoder(np.concatenate([X2_train, X2_valid, X2_test]))
 	elif args.ap == "default":
+	    if not path.isfile(path.join("../saved_models/default/", "adducts_encoder.json")):
+                raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
 	    self.adduct_encoder.load_encoder("../saved_models/default/adducts_encoder.json")
 	else:
+	    if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
+                raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
 	    self.adduct_encoder.load_encoder(args.ap)
 
-	if args.sp None:
+	if args.sp == None:
 	    new_model.fit_smiles_encoder(np.concatenate([X1_train, X1_valid, X1_test]))
         elif args.sp == "default":
+            if not path.isfile(path.join("../saved_models/default/", "smiles_encoder.json")):
+                raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
 	    self.smiles_encoder.load_encoder("../saved_models/default/smiles_encoder.json")
         else:
+            if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
+                raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
 	    self.adduct_encoder.load_encoder(args.sp)
 	
 	print(new_model.smiles_encoder.converter)
