@@ -470,7 +470,7 @@ class CommandLineInterface(object):
 	
 	if args.ap == None:
 	    new_model.fit_adduct_encoder(np.concatenate([X2_train, X2_valid, X2_test]))
-	elif args.ap == "default":
+	elif args.ap == "d":
 	    if not path.isfile(path.join("../saved_models/default/", "adducts_encoder.json")):
                 raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
 	    self.adduct_encoder.load_encoder("../saved_models/default/adducts_encoder.json")
@@ -481,7 +481,7 @@ class CommandLineInterface(object):
 
 	if args.sp == None:
 	    new_model.fit_smiles_encoder(np.concatenate([X1_train, X1_valid, X1_test]))
-        elif args.sp == "default":
+        elif args.sp == "d":
             if not path.isfile(path.join("../saved_models/default/", "smiles_encoder.json")):
                 raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
 	    self.smiles_encoder.load_encoder("../saved_models/default/smiles_encoder.json")
