@@ -473,22 +473,22 @@ class CommandLineInterface(object):
 	elif args.ap == "d":
 	    if not path.isfile(path.join("../saved_models/default/", "adducts_encoder.json")):
                 raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
-	    self.adduct_encoder.load_encoder("../saved_models/default/adducts_encoder.json")
+	    new_model.adduct_encoder.load_encoder("../saved_models/default/adducts_encoder.json")
 	else:
 	    if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
                 raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
-	    self.adduct_encoder.load_encoder(args.ap)
+	    new_model.adduct_encoder.load_encoder(args.ap+"adducts_encoder.json")
 
 	if args.sp == None:
 	    new_model.fit_smiles_encoder(np.concatenate([X1_train, X1_valid, X1_test]))
         elif args.sp == "d":
             if not path.isfile(path.join("../saved_models/default/", "smiles_encoder.json")):
                 raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-	    self.smiles_encoder.load_encoder("../saved_models/default/smiles_encoder.json")
+	    new_model.smiles_encoder.load_encoder("../saved_models/default/smiles_encoder.json")
         else:
             if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
                 raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-	    self.adduct_encoder.load_encoder(args.sp)
+	    new_model.adduct_encoder.load_encoder(args.sp+"smiles_encoder.json")
 	
 	print(new_model.smiles_encoder.converter)
 
