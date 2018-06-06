@@ -3,7 +3,7 @@ CCS prediction using deep neural network
 
 ### For the impatient:
 
-Go to DeepCCS/interface/ directory.
+After installation, go to DeepCCS/interface/ directory.
 
 ./command_line_tool.py predict -i **INPUT_F** -o **OUTPUT_F**
 
