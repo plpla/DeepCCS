@@ -23,13 +23,10 @@
 import datetime
 from sys import argv, exit
 from os import path, makedirs
-import h5py as h5
 import argparse
 import logging
-import pandas as pd
 
 import numpy as np
-from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 
 
 # Seed for shuffling
@@ -80,7 +77,6 @@ class CommandLineInterface(object):
             getattr(self, args.command)()
 
     def predict(self):
-
         parser = argparse.ArgumentParser(prog='DeepCCS predict',
                                          description="Predict CCS for some SMILES and adducts using a pre-trained " +
                                                      "model.")
@@ -121,7 +117,9 @@ class CommandLineInterface(object):
                                    smiles_encoder_file=path.join(args.sp, "smiles_encoder.json"))
         X_smiles, X_adducts = read_input_table(args.i)
         ccs_pred = model.predict(X_smiles, X_adducts)
-        ccs_pred = np.array([i[0] for i in ccs_pred])
+
+        ccs_pred = ccs_pred.flatten()
+        
         out_file_name = None
         if args.o != "":
             out_file_name = args.o
@@ -153,20 +151,62 @@ class CommandLineInterface(object):
         self.parser_predict.set_defaults(func=self.train)
 
     def evaluate(self):
-        self.parser_predict = self.subparser.add_parser("evaluate",
-                                                        help="Predict CCS for some SMILES and adducts using a pretrained model and ouput stats on the predictions.")
+        parser = argparse.ArgumentParser(prog='DeepCCS evaluate',
+                                         description="Evaluate the model performances using SMILES and adducts for " +
+                                                     "which the CCS was measured.")
 
-        self.parser_predict.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
-        self.parser_predict.add_argument("-ap", help="path to adducts_encoder directory",
-                                         default="../saved_models/default/")
-        self.parser_predict.add_argument("-sp", help="path to smiles_encoder directory",
-                                         default="../saved_models/default/")
+        parser.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
+        parser.add_argument("-ap", help="path to adducts_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-sp", help="path to smiles_encoder directory", default="../saved_models/default/")
 
-        self.parser_predict.add_argument("-r", help="reference file name", required=True)
-        self.parser_predict.add_argument("-o",
-                                         help="Output file name (MyFile.csv). If not specified, stdout will be used",
-                                         default="")
-        self.parser_predict.set_defaults(func=self.evaluate)
+        parser.add_argument("-i", help="input file name. Must contain columns SMILES, adducts and CCS", required=True)
+        parser.add_argument("-o", help="Output file name (ex: MyFile.csv). If not specified, stdout will be used",
+                            default="")
+
+        if len(argv) <= 2:
+            parser.print_help()
+            exit()
+
+        args = parser.parse_args(argv[2:])
+
+        from DeepCCS.utils import read_reference_table, output_results, output_global_stats
+        from DeepCCS.model import DeepCCS
+
+        print("Starting evaluation tool with the following args:" + str(args))
+        if not path.isdir(args.mp):
+            raise IOError("Model directory cannot be found")
+        if not path.isdir(args.ap):
+            raise IOError("adducts_encoder directory cannot be found")
+        if not path.isdir(args.sp):
+            raise IOError("smiles_encoder directory cannot be found")
+
+        if not path.isfile(args.i):
+            raise IOError("Input file cannot be found")
+        if not path.isfile(path.join(args.mp, "model.h5")):
+            raise IOError("Model file is missing from model directory")
+        if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
+            raise IOError("adducts_encoder.json is missing from the adducts_encoder directory directory")
+        if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
+            raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
+
+        model = DeepCCS.DeepCCSModel()
+        model.load_model_from_file(filename=path.join(args.mp, "model.h5"),
+                                   adduct_encoder_file=path.join(args.ap, "adducts_encoder.json"),
+                                   smiles_encoder_file=path.join(args.sp, "smiles_encoder.json"))
+
+        X_smiles, X_adducts, X_ccs = read_reference_table(args.i)
+        ccs_pred = model.predict(X_smiles, X_adducts)
+
+        ccs_pred = ccs_pred.flatten()
+
+        out_file_name = None
+        if args.o != "":
+            out_file_name = args.o
+
+        output_results(args.i, X_smiles, X_adducts, ccs_pred, out_file_name)
+
+        print("-----------Model stats-----------")
+        output_global_stats(X_ccs, ccs_pred)
 
     def compare(self):
         self.parser_predict = self.subparser.add_parser("compare",
@@ -260,50 +300,6 @@ class CommandLineInterface(object):
                 print("=> {} molecules used for comparaison".format(len(ccs_user)))
                 print("--------Comparaison stats--------")
                 output_global_stats(ccs_ref, ccs_user)
-
-    def evaluate(self, args):
-        # Useful to evaluate the performances of the model, the theoritical ccs values must be known.
-
-        print("Starting evaluation tool with the following args:" + str(args))
-        if not path.isdir(args.mp):
-            raise IOError("Model directory cannot be found")
-        if not path.isdir(args.ap):
-            raise IOError("adducts_encoder directory cannot be found")
-        if not path.isdir(args.sp):
-            raise IOError("smiles_encoder directory cannot be found")
-
-        if not path.isfile(args.r):
-            raise IOError("Reference file cannot be found")
-        if not path.isfile(path.join(args.mp, "model.h5")):
-            raise IOError("Model file is missing from model directory")
-        if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
-            raise IOError("adducts_encoder.json is missing from the adducts_encoder directory directory")
-        if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
-            raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-
-        model = DeepCCS.DeepCCSModel()
-        model.load_model_from_file(filename=path.join(args.mp, "model.h5"),
-                                   adduct_encoder_file=path.join(args.ap, "adducts_encoder.json"),
-                                   smiles_encoder_file=path.join(args.sp, "smiles_encoder.json"))
-
-        X_smiles, X_adducts, X_ccs = read_reference_table(args.r)
-        ccs_pred = model.predict(X_smiles, X_adducts)
-
-        ccs_pred = np.array([i[0] for i in ccs_pred])
-
-        print(X_ccs[0:10])
-        print("---")
-        print(ccs_pred[0:10])
-
-        if args.o != "":
-            Ofile_name = args.o
-        else:
-            Ofile_name = None
-
-        output_results(args.r, X_smiles, X_adducts, ccs_pred, Ofile_name)
-
-        print("-----------Model stats-----------")
-        output_global_stats(X_ccs, ccs_pred)
 
     def train(self, args):
 
