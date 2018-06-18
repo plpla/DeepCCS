@@ -21,16 +21,16 @@
 """
 
 import datetime
-from sys import argv
+from sys import argv, exit
 from os import path, makedirs
 import h5py as h5
 import argparse
 import logging
 import pandas as pd
-from DeepCCS.utils import *
+
 import numpy as np
 from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
-from DeepCCS.model import DeepCCS
+
 
 # Seed for shuffling
 np.random.seed(13)
@@ -48,59 +48,87 @@ class CommandLineInterface(object):
 
         self.available_commands = ["predict", "evaluate", "compare", "train"]
 
-        self.parser = argparse.ArgumentParser(description=DESCRIPTION)
-        self.parser.add_argument('--license', action='store_true', help='Show license')
-        self.parser.add_argument('--version', action='store_true', help='Show version')
-        self.parser.add_argument('command', help='Available commands', choices=self.available_commands)
+        parser = argparse.ArgumentParser(description=DESCRIPTION)
+        parser.add_argument('--license', action='store_true', help='Show license')
+        parser.add_argument('--version', action='store_true', help='Show version')
+        parser.add_argument('command', help='Available commands', choices=self.available_commands)
 
         if len(argv) == 1:
-            self.parser.print_help()
+            parser.print_help()
 
-        if "--" == argv[1][:2]:  # A -- option was used. Parse it immediatly
+        if "--" == argv[1][:2]:  # An option was used. Parse it immediatly
             print(argv[1])
-            args = self.parser.parse_args([argv[1], "predict"])  # Add predict to avoid error message.
+            args = parser.parse_args([argv[1], "predict"])  # Add predict to avoid error message.
 
             print("-- was used. Here are the args status:\n" + str(args))
             if args.license:
                 self.print_license()
             if args.version:
                 print("DeepCCS V{}".format(VERSION))
+            else:
+                print("Not a valid option.")
+                print(parser.print_help())
+                exit()
 
         else:
-            args = self.parser.parse_args(argv[1:])
+            args = parser.parse_args(argv[1:2])
             print("-- was not used. Here are the args:" + str(vars(args)))
-            args.func(args)
+            if args.command not in self.available_commands:
+                print("Not a valid command.")
+                print(parser.print_help())
+                exit(1)
+            getattr(self, args.command)()
+
+    def predict(self):
+
+        parser = argparse.ArgumentParser(prog='DeepCCS predict',
+                                         description="Predict CCS for some SMILES and adducts using a pre-trained " +
+                                                     "model.")
+        parser.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
+        parser.add_argument("-ap", help="path to adducts_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-sp", help="path to smiles_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-i", help="input file name with SMILES and adduct columns", required=True)
+        parser.add_argument("-o", help="Output file name (ex: MyFile.csv). If not specified, stdout will be used",
+                            default="")
+
+        if len(argv) <= 2:
+            parser.print_help()
+            exit()
+
+        args = parser.parse_args(argv[2:])
+
+        from DeepCCS.utils import read_input_table, output_results
+        from DeepCCS.model import DeepCCS
+
+        print("Starting prediction tool with the following args:" + str(args))
+        if not path.isdir(args.mp):
+            raise IOError("Model directory cannot be found")
+        if not path.isdir(args.ap):
+            raise IOError("adducts_encoder directory cannot be found")
+        if not path.isdir(args.sp):
+            raise IOError("smiles_encoder directory cannot be found")
+
+        if not path.isfile(path.join(args.mp, "model.h5")):
+            raise IOError("Model file is missing from model directory")
+        if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
+            raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
+        if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
+            raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
+
+        model = DeepCCS.DeepCCSModel()
+        model.load_model_from_file(filename=path.join(args.mp, "model.h5"),
+                                   adduct_encoder_file=path.join(args.ap, "adducts_encoder.json"),
+                                   smiles_encoder_file=path.join(args.sp, "smiles_encoder.json"))
+        X_smiles, X_adducts = read_input_table(args.i)
+        ccs_pred = model.predict(X_smiles, X_adducts)
+        ccs_pred = np.array([i[0] for i in ccs_pred])
+        out_file_name = None
+        if args.o != "":
+            out_file_name = args.o
+        output_results(args.i, X_smiles, X_adducts, ccs_pred, out_file_name)
 
 
-
-        self.subparser = self.parser.add_subparsers(help='sub-command help')
-
-
-
-
-        ###########
-        # predict #
-        ###########
-
-        self.parser_predict = self.subparser.add_parser("predict",
-                                                        help="Predict CCS for some SMILES and adducts using a pretrained model.")
-
-        self.parser_predict.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
-        self.parser_predict.add_argument("-ap", help="path to adducts_encoder directory",
-                                         default="../saved_models/default/")
-        self.parser_predict.add_argument("-sp", help="path to smiles_encoder directory",
-                                         default="../saved_models/default/")
-
-        self.parser_predict.add_argument("-i", help="input file name", required=True)
-        self.parser_predict.add_argument("-o",
-                                         help="Output file name (MyFile.csv). If not specified, stdout will be used",
-                                         default="")
-        self.parser_predict.set_defaults(func=self.predict)
-
-        #########
-        # train #
-        #########
-
+    def train(self):
         self.parser_predict = self.subparser.add_parser("train",
                                                         help="Train a new model.")
         self.parser_predict.add_argument("-ap", help="path to adducts_encoder directory", default=None)
@@ -124,10 +152,7 @@ class CommandLineInterface(object):
         self.parser_predict.add_argument("-o", help="Output directory for model and mappers", default="./")
         self.parser_predict.set_defaults(func=self.train)
 
-        ############
-        # evaluate #
-        ############
-
+    def evaluate(self):
         self.parser_predict = self.subparser.add_parser("evaluate",
                                                         help="Predict CCS for some SMILES and adducts using a pretrained model and ouput stats on the predictions.")
 
@@ -143,10 +168,7 @@ class CommandLineInterface(object):
                                          default="")
         self.parser_predict.set_defaults(func=self.evaluate)
 
-        ###########
-        # compare #
-        ###########
-
+    def compare(self):
         self.parser_predict = self.subparser.add_parser("compare",
                                                         help="Compare for some SMILES and adducts the given CCS value with the value used to create this algoritm.")
 
@@ -159,10 +181,6 @@ class CommandLineInterface(object):
         self.parser_predict.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)",
                                          default=None)
         self.parser_predict.set_defaults(func=self.compare)
-
-        #########
-        # Parse #
-        #########
 
 
 
@@ -286,41 +304,6 @@ class CommandLineInterface(object):
 
         print("-----------Model stats-----------")
         output_global_stats(X_ccs, ccs_pred)
-
-    def predict(self, args):
-        # Useful for predicting unknown ccs values
-
-        print("Starting prediction tool with the following args:" + str(args))
-        if not path.isdir(args.mp):
-            raise IOError("Model directory cannot be found")
-        if not path.isdir(args.ap):
-            raise IOError("adducts_encoder directory cannot be found")
-        if not path.isdir(args.sp):
-            raise IOError("smiles_encoder directory cannot be found")
-
-        if not path.isfile(path.join(args.mp, "model.h5")):
-            raise IOError("Model file is missing from model directory")
-        if not path.isfile(path.join(args.ap, "adducts_encoder.json")):
-            raise IOError("adduct_encoder.json is missing from the adducts_encoder directory directory")
-        if not path.isfile(path.join(args.sp, "smiles_encoder.json")):
-            raise IOError("smiles_encoder.json is missing from the smiles_encoder directory directory")
-
-        model = DeepCCS.DeepCCSModel()
-        model.load_model_from_file(filename=path.join(args.mp, "model.h5"),
-                                   adduct_encoder_file=path.join(args.ap, "adducts_encoder.json"),
-                                   smiles_encoder_file=path.join(args.sp, "smiles_encoder.json"))
-
-        X_smiles, X_adducts = read_input_table(args.i)
-        ccs_pred = model.predict(X_smiles, X_adducts)
-
-        ccs_pred = np.array([i[0] for i in ccs_pred])
-
-        if args.o != "":
-            Ofile_name = args.o
-        else:
-            Ofile_name = None
-
-        output_results(args.i, X_smiles, X_adducts, ccs_pred, Ofile_name)
 
     def train(self, args):
 

@@ -28,6 +28,7 @@ import h5py as h5
 import sys
 from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
 
+
 def filter_data(data_table):
     """
     Filter data table using a set of constraints defined by global vars.
@@ -45,24 +46,29 @@ def filter_data(data_table):
     data = data[np.array([(i in ADDUCTS_TO_KEEP) for i in data["Adducts"]])]
     logging.debug("{} items after filtering".format(len(data)))
     post_filter = len(data)
-    sys.stdout.write("--> {} SMILES and adducts were removed.\n".format(pre_filter-post_filter))
+    sys.stdout.write("--> {} SMILES and adducts were removed.\n".format(pre_filter - post_filter))
     return data
 
+
 def percentile_90(Y_true, Y_pred):
-    percentile = np.percentile((abs(Y_pred-Y_true)/Y_true)*100, 90)
+    percentile = np.percentile((abs(Y_pred - Y_true) / Y_true) * 100, 90)
     return percentile
+
 
 def percentile_95(Y_true, Y_pred):
-    percentile = np.percentile((abs(Y_pred-Y_true)/Y_true)*100, 95)
+    percentile = np.percentile((abs(Y_pred - Y_true) / Y_true) * 100, 95)
     return percentile
 
+
 def relative_mean(Y_true, Y_pred):
-    mean = np.mean((abs(Y_pred-Y_true)/Y_true)*100)
+    mean = np.mean((abs(Y_pred - Y_true) / Y_true) * 100)
     return mean
 
+
 def relative_median(Y_true, Y_pred):
-    med = np.median((abs(Y_pred-Y_true)/Y_true)*100)
+    med = np.median((abs(Y_pred - Y_true) / Y_true) * 100)
     return med
+
 
 def create_h5(path):
     if not path.isdir(path):
@@ -70,41 +76,44 @@ def create_h5(path):
 
     create_datasets_compil(path)
 
+
 def create_datasets_compil(path_to_templates):
-    df_MCCS_pos = pd.read_csv(path_to_templates+"/MetCCS1_Template.csv").fillna("")
-    df_MCCS_neg = pd.read_csv(path_to_templates+"/MetCCS2_Template.csv").fillna("")
-    df_A_pos = pd.read_csv(path_to_templates+"/MetCCS3_Template.csv").fillna("")
-    df_A_neg = pd.read_csv(path_to_templates+"/MetCCS4_Template.csv").fillna("")
-    df_W_pos = pd.read_csv(path_to_templates+"/MetCCS5_Template.csv").fillna("")
-    df_W_neg = pd.read_csv(path_to_templates+"/MetCCS6_Template.csv").fillna("")
-    df_PNL = pd.read_csv(path_to_templates+"/PNL_Template.csv").fillna("")
-    df_McLean = pd.read_csv(path_to_templates+"/McLean_Lab_Template.csv").fillna("")
-    df_CBM = pd.read_csv(path_to_templates+"/CBM2018_Template.csv").fillna("")
+    df_MCCS_pos = pd.read_csv(path_to_templates + "/MetCCS1_Template.csv").fillna("")
+    df_MCCS_neg = pd.read_csv(path_to_templates + "/MetCCS2_Template.csv").fillna("")
+    df_A_pos = pd.read_csv(path_to_templates + "/MetCCS3_Template.csv").fillna("")
+    df_A_neg = pd.read_csv(path_to_templates + "/MetCCS4_Template.csv").fillna("")
+    df_W_pos = pd.read_csv(path_to_templates + "/MetCCS5_Template.csv").fillna("")
+    df_W_neg = pd.read_csv(path_to_templates + "/MetCCS6_Template.csv").fillna("")
+    df_PNL = pd.read_csv(path_to_templates + "/PNL_Template.csv").fillna("")
+    df_McLean = pd.read_csv(path_to_templates + "/McLean_Lab_Template.csv").fillna("")
+    df_CBM = pd.read_csv(path_to_templates + "/CBM2018_Template.csv").fillna("")
     print("Templates loaded")
 
     dfs = [df_MCCS_pos, df_MCCS_neg, df_A_pos, df_A_neg, df_W_pos, df_W_neg, df_PNL, df_McLean, df_CBM]
-    names = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL", "McLean", "CBM"] 
+    names = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL", "McLean",
+             "CBM"]
 
     print("Starting writing in h5")
-    f = h5.File(path_to_templates+'/DATASETS.h5', 'w')
+    f = h5.File(path_to_templates + '/DATASETS.h5', 'w')
     dt = h5.special_dtype(vlen=unicode)
     for i, j in enumerate(dfs):
         print(names[i])
-	f.create_dataset(names[i]+'/Compound', data=np.array(j["Compound"]), dtype=dt)
+        f.create_dataset(names[i] + '/Compound', data=np.array(j["Compound"]), dtype=dt)
         print("compound done")
-	f.create_dataset(names[i]+'/CAS', data=np.array(j["CAS"]), dtype=dt)
-	print("cas done")
-        f.create_dataset(names[i]+'/SMILES', data=np.array(j["SMILES"]), dtype=dt)
-	print("smiles done")
-        f.create_dataset(names[i]+'/Mass', data=np.array(j["Mass"]))
-	print("Mass done")
-        f.create_dataset(names[i]+'/Adducts', data=np.array(j["Adducts"]), dtype=dt)
-	print("adducts done")
-        f.create_dataset(names[i]+'/CCS', data=np.array(j["CCS"]))
-	print("ccs done")
-        f.create_dataset(names[i]+'/Metadata', data=np.array(j["Metadata"]), dtype=dt)
-	print("metadata done")
+        f.create_dataset(names[i] + '/CAS', data=np.array(j["CAS"]), dtype=dt)
+        print("cas done")
+        f.create_dataset(names[i] + '/SMILES', data=np.array(j["SMILES"]), dtype=dt)
+        print("smiles done")
+        f.create_dataset(names[i] + '/Mass', data=np.array(j["Mass"]))
+        print("Mass done")
+        f.create_dataset(names[i] + '/Adducts', data=np.array(j["Adducts"]), dtype=dt)
+        print("adducts done")
+        f.create_dataset(names[i] + '/CCS', data=np.array(j["CCS"]))
+        print("ccs done")
+        f.create_dataset(names[i] + '/Metadata', data=np.array(j["Metadata"]), dtype=dt)
+        print("metadata done")
     f.close()
+
 
 def output_results(Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
     if Ifile_name[-4:] == ".csv":
@@ -117,39 +126,37 @@ def output_results(Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
         raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
                          "use the provided template if needed.")
 
-    out_df = table.assign(CCS_pred=pd.Series(np.zeros(len(table)), index=table.index))      
+    out_df = table.assign(CCS_pred=pd.Series(np.zeros(len(table)), index=table.index))
     for idx, row in enumerate(out_df.itertuples()):
         for i, j in enumerate(smiles):
             if row.SMILES == j and row.Adducts == adducts[i]:
                 out_df.iloc[idx, -1] = ccs_pred[i]
             elif row.SMILES != j and row.Adducts != adducts[i] and out_df.iloc[idx, -1] == 0:
-                out_df.iloc[idx, -1] = "-" 
-        
-    pd.options.display.max_colwidth = 2000  
+                out_df.iloc[idx, -1] = "-"
+
+    pd.options.display.max_colwidth = 2000
     out_df_string = out_df.to_string(header=True)
-        
+
     if Ofile_name == None:
         sys.stdout.write(out_df_string)
-    else: 
-	out_df.to_csv(Ofile_name, encoding='utf-8', index=False)
-        #f = open(Ofile_name, 'w')
-        #f.write(out_df.to_string(header=True).encode('utf-8'))
-        #f.close
-
+    else:
+        out_df.to_csv(Ofile_name, encoding='utf-8', index=False)
+    # f = open(Ofile_name, 'w')
+    # f.write(out_df.to_string(header=True).encode('utf-8'))
+    # f.close
 
 
 def output_global_stats(ccs_ref, ccs_pred):
-
     ccs_ref = np.array(ccs_ref)
     ccs_pred = np.array(ccs_pred)
 
-    mean = round(mean_absolute_error(ccs_ref, ccs_pred),2)
-    med = round(median_absolute_error(ccs_ref, ccs_pred),2)
-    rel_mean = round(relative_mean(ccs_ref, ccs_pred),2)
-    rel_med = round(relative_median(ccs_ref, ccs_pred),2)
-    r2 = round(r2_score(ccs_ref, ccs_pred),2)
-    perc_90 = round(percentile_90(ccs_ref, ccs_pred),2)
-    perc_95 = round(percentile_95(ccs_ref, ccs_pred),2)
+    mean = round(mean_absolute_error(ccs_ref, ccs_pred), 2)
+    med = round(median_absolute_error(ccs_ref, ccs_pred), 2)
+    rel_mean = round(relative_mean(ccs_ref, ccs_pred), 2)
+    rel_med = round(relative_median(ccs_ref, ccs_pred), 2)
+    r2 = round(r2_score(ccs_ref, ccs_pred), 2)
+    perc_90 = round(percentile_90(ccs_ref, ccs_pred), 2)
+    perc_95 = round(percentile_95(ccs_ref, ccs_pred), 2)
 
     print("---------------------------------")
     print("     Absolute Mean  :  {} ".format(mean))
@@ -163,25 +170,26 @@ def output_global_stats(ccs_ref, ccs_pred):
 
 
 def read_datasets(h5_path, dataset_name):
-# Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
+    # Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
 
     # Create df
     pd_df = pd.DataFrame(columns=["Compound", "CAS", "SMILES", "Mass", "Adducts", "CCS", "Metadata"])
 
     # Open reference file and retrieve data corresponding to the dataset name 
     f = h5.File(h5_path, 'r')
-    pd_df["Compound"] = f[dataset_name+'/Compound']
-    pd_df["CAS"] = f[dataset_name+'/CAS']
-    pd_df["SMILES"] = f[dataset_name+'/SMILES']
-    pd_df["Mass"] = f[dataset_name+'/Mass']
-    pd_df["Adducts"] = f[dataset_name+'/Adducts']
-    pd_df["CCS"] = f[dataset_name+'/CCS']
-    pd_df["Metadata"] = f[dataset_name+'/Metadata']
+    pd_df["Compound"] = f[dataset_name + '/Compound']
+    pd_df["CAS"] = f[dataset_name + '/CAS']
+    pd_df["SMILES"] = f[dataset_name + '/SMILES']
+    pd_df["Mass"] = f[dataset_name + '/Mass']
+    pd_df["Adducts"] = f[dataset_name + '/Adducts']
+    pd_df["CCS"] = f[dataset_name + '/CCS']
+    pd_df["Metadata"] = f[dataset_name + '/Metadata']
     f.close()
 
     pd_df = filter_data(pd_df)
 
     return pd_df
+
 
 def read_input_table(file_name):
     if file_name[-4:] == ".csv":
@@ -191,14 +199,15 @@ def read_input_table(file_name):
     print(list(table.columns.values))
     if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
         raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
-                             "use the provided template if needed.")
+                         "use the provided template if needed.")
     table = filter_data(table)
     smiles = np.array(table['SMILES'])
     adducts = np.array(table['Adducts'])
     return smiles, adducts
 
+
 def read_reference_table(file_name):
-# Useful to read a reference table containing the ccs values corresponding to SMILES and adducts 
+    # Useful to read a reference table containing the ccs values corresponding to SMILES and adducts
 
     if file_name[-4:] == ".csv":
         table = pd.read_csv(file_name, sep=",", header=0)
@@ -214,10 +223,5 @@ def read_reference_table(file_name):
     adducts = np.array(table['Adducts'])
     return smiles, adducts, ccs
 
-
-#if __name__ == '__main__':
+# if __name__ == '__main__':
 #    create_datasets_compil("/is2/projects/JC_Elinaf/Data_CCS/")
-
-
-
-
