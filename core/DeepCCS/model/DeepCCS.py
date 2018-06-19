@@ -102,9 +102,9 @@ class DeepCCSModel(object):
 
         self.model = model
 
-    def train_model(self, X1_train, X2_train, Y_train, X1_valid, X2_valid, Y_valid, model_checkpoint, nbr_epochs):
+    def train_model(self, X1_train, X2_train, Y_train, X1_valid, X2_valid, Y_valid, model_checkpoint, nbr_epochs,
+                    verbose):
 
         self.model.fit([X1_train, X2_train], Y_train, epochs=nbr_epochs, batch_size=2,
-                       validation_data=([X1_valid, X2_valid], Y_valid), verbose=1, callbacks=[model_checkpoint])
-
+                       validation_data=([X1_valid, X2_valid], Y_valid), verbose=verbose, callbacks=[model_checkpoint])
         self._is_fit = True
