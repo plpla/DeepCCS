@@ -1,27 +1,43 @@
-# DeepCCS
-
-<img src="http://gdurl.com/PrrA" width=125 height=125 />
+<img src="http://gdurl.com/PrrA" width=150 height=150 />
 
 CCS prediction from SMILES using deep neural network.
 
-### For the impatients
+## For the impatients
 
 After installation, go to the DeepCCS/interface/ directory.
 
-    ./command_line_tool.py predict -i INPUT_F
+    python command_line_tool.py predict -i INPUT
 
-- **INPUT_F** is the input file with at least a “SMILES” and a “Adducts” columns
+- **INPUT** is the input file with at least a “SMILES” and an “Adducts” column
 
-The default modeland encoders files will be used.
+The default model and encoders files will be used.
 
-### Information
+## Installation
 
-DeepCCS is in alpha and under active development. You can still discover it yourself and available models should give
-accurate predictions.
+DeepCCS was tested and works under Python 3.6. We recommend to use [conda](https://conda.io/docs/user-guide/install/download.html).
 
-More information about installation and usage will come soon...
+Package required:
+ * Numpy
+ * Pandas
+ * Scikit-learn
+ * Tensorflow
+ * Keras
 
-### References
+To install, simply perform the following command using a terminal:
+
+    python setup.py install
+
+## Functionalities
+Coming soon...
+### Predict
+
+### Compare
+
+### Evaluate
+
+### Train
+
+## References
 DeepCCS relies heavily on datasets that were previously published by others:
 
 * Zhou Z, Shen X, Tu J, Zhu ZJ. Large-Scale Prediction of Collision Cross-Section Values for Metabolites in Ion
