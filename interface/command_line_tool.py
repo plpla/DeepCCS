@@ -27,6 +27,7 @@ import argparse
 import logging
 
 import numpy as np
+import pandas as pd
 
 
 # Seed for shuffling
@@ -80,10 +81,10 @@ class CommandLineInterface(object):
         parser = argparse.ArgumentParser(prog='DeepCCS predict',
                                          description="Predict CCS for some SMILES and adducts using a pre-trained " +
                                                      "model.")
-        parser.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
-        parser.add_argument("-ap", help="path to adducts_encoder directory", default="../saved_models/default/")
-        parser.add_argument("-sp", help="path to smiles_encoder directory", default="../saved_models/default/")
-        parser.add_argument("-i", help="input file name with SMILES and adduct columns", required=True)
+        parser.add_argument("-mp", help="Path to model directory", default="../saved_models/default/")
+        parser.add_argument("-ap", help="Path to adducts_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-sp", help="Path to smiles_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-i", help="Input file name with SMILES and adduct columns", required=True)
         parser.add_argument("-o", help="Output file name (ex: MyFile.csv). If not specified, stdout will be used",
                             default="")
 
@@ -119,7 +120,7 @@ class CommandLineInterface(object):
         ccs_pred = model.predict(X_smiles, X_adducts)
 
         ccs_pred = ccs_pred.flatten()
-        
+
         out_file_name = None
         if args.o != "":
             out_file_name = args.o
@@ -155,12 +156,12 @@ class CommandLineInterface(object):
                                          description="Evaluate the model performances using SMILES and adducts for " +
                                                      "which the CCS was measured.")
 
-        parser.add_argument("-mp", help="path to model directory", default="../saved_models/default/")
-        parser.add_argument("-ap", help="path to adducts_encoder directory", default="../saved_models/default/")
-        parser.add_argument("-sp", help="path to smiles_encoder directory", default="../saved_models/default/")
-
-        parser.add_argument("-i", help="input file name. Must contain columns SMILES, adducts and CCS", required=True)
-        parser.add_argument("-o", help="Output file name (ex: MyFile.csv). If not specified, stdout will be used",
+        parser.add_argument("-mp", help="Path to model directory", default="../saved_models/default/")
+        parser.add_argument("-ap", help="Path to adducts_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-sp", help="Path to smiles_encoder directory", default="../saved_models/default/")
+        parser.add_argument("-i", help="Input file name. Must contain columns SMILES, adducts and CCS", required=True)
+        parser.add_argument("-o", help="Output file name (ex: MyFile.csv). If not specified, stdout will be used." +
+                                       " If 'none', only global stats will be shown.",
                             default="")
 
         if len(argv) <= 2:
@@ -203,26 +204,88 @@ class CommandLineInterface(object):
         if args.o != "":
             out_file_name = args.o
 
-        output_results(args.i, X_smiles, X_adducts, ccs_pred, out_file_name)
+        if out_file_name is None or out_file_name.lower() != "none":
+            output_results(args.i, X_smiles, X_adducts, ccs_pred, out_file_name)
 
         print("-----------Model stats-----------")
         output_global_stats(X_ccs, ccs_pred)
 
     def compare(self):
-        self.parser_predict = self.subparser.add_parser("compare",
-                                                        help="Compare for some SMILES and adducts the given CCS value with the value used to create this algoritm.")
+        parser = argparse.ArgumentParser(prog='DeepCCS compare',
+                                         description="Compare the CCS values in a file with the value used to create " +
+                                                     "train this predictive model. No predictions involved in the " +
+                                                     "process, only comparaison.")
 
-        self.parser_predict.add_argument("-r", help="reference file name", required=True)
-        self.parser_predict.add_argument("-o",
-                                         help="prefix for output file name (MyFile_). If not specified, stdout will be used",
-                                         default="")
-        self.parser_predict.add_argument("-f", help="h5 file containing the datasets used to create this algoritm",
-                                         required=True)
-        self.parser_predict.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)",
-                                         default=None)
-        self.parser_predict.set_defaults(func=self.compare)
+        parser.add_argument("-i", help="Input file name", required=True)
+        parser.add_argument("-o", help="Prefix of output file name (ex: MyFile_). If not specified, stdout will be " +
+                                       "used. If 'none', onlyt the stats will be shown.", default="")
+        parser.add_argument("-f", help="hdf5 file containing the datasets used to create this algoritm", required=True)
+        parser.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)", default=None)
 
+        if len(argv) <= 2:
+            parser.print_help()
+            exit()
 
+        args = parser.parse_args(argv[2:])
+
+        from DeepCCS.utils import read_datasets, read_reference_table, output_results, output_global_stats
+
+        logging.debug("Starting comparaison tool with the following args:" + str(args))
+        if not path.isfile(args.i):
+            raise IOError("Reference file cannot be found")
+        if not path.isfile(args.f):
+            raise IOError("h5 file cannot be found")
+
+        # Output prefix, if none : output to stdout
+        out_file_name_prefix = None
+        if args.o != "":
+            out_file_name_prefix = args.o
+
+        # Data used to create algorithm
+        if args.d is not None:
+            dt_list = args.d.split(", ")
+        else:
+            dt_list = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL",
+                       "McLean", "CBM"]
+
+        # Get a pandas dataframe for each dataset asked for comparaison
+        # output another table with all the original values + the ccs given by user in an extra column
+        # print general stats on the compaison
+        logging.debug("Starting iterating on the dataset list of comparaison")
+        for i in dt_list:
+            df_dt = read_datasets(args.f, i)
+            smiles = df_dt["SMILES"]
+            adducts = df_dt["Adducts"]
+            ccs = df_dt["CCS"]
+
+            out_file_name = None
+            if out_file_name_prefix is not None:
+                out_file_name = out_file_name_prefix + i + ".txt"
+
+            if out_file_name is None or out_file_name_prefix.lower() != "none":
+                output_results(args.i, smiles, adducts, ccs, out_file_name)
+
+            smiles_u, adducts_u, ccs_u = read_reference_table(args.i)
+
+            df_user = pd.DataFrame({"SMILES": smiles_u,
+                                    "Adducts": adducts_u,
+                                    "CCS": ccs_u})
+
+            df_ref = pd.DataFrame({"SMILES": smiles,
+                                   "Adducts": adducts,
+                                   "CCS_DeepCCS": ccs})
+
+            merged_df = pd.merge(left=df_user, right=df_ref, on=["SMILES", "Adducts"], how='inner')
+
+            if len(merged_df["CCS"]) == 0:
+                print(i)
+                print("No corresponding molecule, moving to next dataset.")
+                continue
+            else:
+                print("{} dataset :".format(i))
+                print("=> {} molecules used for comparaison".format(len(merged_df["CCS"])))
+                print("--------Comparaison stats--------")
+                output_global_stats(merged_df["CCS_DeepCCS"], merged_df["CCS"])
 
     def print_license(self):
         print("""
@@ -241,65 +304,6 @@ class CommandLineInterface(object):
         You should have received a copy of the GNU General Public License
         along with this program.  If not, see <http://www.gnu.org/licenses/>.
         """)
-
-    def compare(self, args):
-        # Useful to compare given reference data to the ones used to create this algorithm.
-
-        print("Starting comparaison tool with the following args:" + str(args))
-        if not path.isfile(args.r):
-            raise IOError("Reference file cannot be found")
-        if not path.isfile(args.f):
-            raise IOError("h5 file cannot be found")
-
-        # Output prefix, if none : output to stdout
-        if args.o != "":
-            Ofile_name = args.o
-        else:
-            Ofile_name = None
-
-        # Data used to create algorithm
-        if args.d != None:
-            dt_list = args.d.split(",")
-        else:
-            dt_list = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL",
-                       "McLean", "CBM"]
-
-        # Get a pandas dataframe for each dataset asked for comparaison
-        # output another table with all the original values + the ccs given by user in an extra column
-        # print general stats on the compaison
-        print("--> Starting iterating on the dataset list of comparaison")
-        for i in dt_list:
-            df_dt = read_datasets(args.f, i)
-            smiles = df_dt["SMILES"]
-            adducts = df_dt["Adducts"]
-            ccs = df_dt["CCS"]
-
-            print("--> h5 file of datasets : red")
-            output_results(args.r, smiles, adducts, ccs, Ofile_name + i + ".txt")
-            print("--> output table : generated")
-
-            smiles_u, adducts_u, ccs_u = read_reference_table(args.r)
-            ccs_user = []
-            ccs_ref = []
-            for j, smi in enumerate(smiles):
-                for l, smi_u in enumerate(smiles_u):
-                    if smi == smi_u and adducts[j] == adducts_u[l]:
-                        ccs_user.append(ccs_u[l])
-                        ccs_ref.append(ccs[j])
-            print("--> List of similar smiles : done")
-
-            if len(ccs_user) == 0:
-                print(i)
-                print("No corresponding molecule, moving to next dataset.")
-                continue
-            else:
-                print(ccs_user[0:10])
-                print("___")
-                print(ccs_ref[0:10])
-                print("{} dataset :".format(i))
-                print("=> {} molecules used for comparaison".format(len(ccs_user)))
-                print("--------Comparaison stats--------")
-                output_global_stats(ccs_ref, ccs_user)
 
     def train(self, args):
 
@@ -531,6 +535,6 @@ class CommandLineInterface(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s.%(msecs)d %(levelname)s %(module)s - %(process)d - %(funcName)s: %(message)s")
+    #logging.basicConfig(level=logging.DEBUG,
+    #                    format="%(asctime)s.%(msecs)d %(levelname)s %(module)s - %(process)d - %(funcName)s: %(message)s")
     CommandLineInterface()

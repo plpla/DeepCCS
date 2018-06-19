@@ -46,7 +46,7 @@ def filter_data(data_table):
     data = data[np.array([(i in ADDUCTS_TO_KEEP) for i in data["Adducts"]])]
     logging.debug("{} items after filtering".format(len(data)))
     post_filter = len(data)
-    sys.stdout.write("--> {} SMILES and adducts were removed.\n".format(pre_filter - post_filter))
+    logging.debug("{} SMILES and adducts were removed by filter.\n".format(pre_filter - post_filter))
     return data
 
 
@@ -70,32 +70,30 @@ def relative_median(Y_true, Y_pred):
     return med
 
 
-def create_h5(path):
+def _create_h5(path):
     if not path.isdir(path):
         raise IOError("Path of templates cannot be found.")
-
-    create_datasets_compil(path)
-
-
-def create_datasets_compil(path_to_templates):
-    df_MCCS_pos = pd.read_csv(path_to_templates + "/MetCCS1_Template.csv").fillna("")
-    df_MCCS_neg = pd.read_csv(path_to_templates + "/MetCCS2_Template.csv").fillna("")
-    df_A_pos = pd.read_csv(path_to_templates + "/MetCCS3_Template.csv").fillna("")
-    df_A_neg = pd.read_csv(path_to_templates + "/MetCCS4_Template.csv").fillna("")
-    df_W_pos = pd.read_csv(path_to_templates + "/MetCCS5_Template.csv").fillna("")
-    df_W_neg = pd.read_csv(path_to_templates + "/MetCCS6_Template.csv").fillna("")
-    df_PNL = pd.read_csv(path_to_templates + "/PNL_Template.csv").fillna("")
-    df_McLean = pd.read_csv(path_to_templates + "/McLean_Lab_Template.csv").fillna("")
-    df_CBM = pd.read_csv(path_to_templates + "/CBM2018_Template.csv").fillna("")
-    print("Templates loaded")
+    df_MCCS_pos = pd.read_csv(path + "/MetCCS1_Template.csv").fillna("")
+    df_MCCS_neg = pd.read_csv(path + "/MetCCS2_Template.csv").fillna("")
+    df_A_pos = pd.read_csv(path + "/MetCCS3_Template.csv").fillna("")
+    df_A_neg = pd.read_csv(path + "/MetCCS4_Template.csv").fillna("")
+    df_W_pos = pd.read_csv(path + "/MetCCS5_Template.csv").fillna("")
+    df_W_neg = pd.read_csv(path + "/MetCCS6_Template.csv").fillna("")
+    df_PNL = pd.read_csv(path + "/PNL_Template.csv").fillna("")
+    df_McLean = pd.read_csv(path + "/McLean_Lab_Template.csv").fillna("")
+    df_CBM = pd.read_csv(path + "/CBM2018_Template.csv").fillna("")
+    logging.debug("Templates loaded")
 
     dfs = [df_MCCS_pos, df_MCCS_neg, df_A_pos, df_A_neg, df_W_pos, df_W_neg, df_PNL, df_McLean, df_CBM]
     names = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL", "McLean",
              "CBM"]
 
-    print("Starting writing in h5")
-    f = h5.File(path_to_templates + '/DATASETS.h5', 'w')
-    dt = h5.special_dtype(vlen=unicode)
+    logging.debug("Starting writing in h5")
+    f = h5.File(path + '/DATASETS.h5', 'w')
+    if sys.version_info >= (3, 0):
+        dt = h5.special_dtype(vlen=str)
+    else:
+        dt = h5.special_dtype(vlen=unicode)
     for i, j in enumerate(dfs):
         print(names[i])
         f.create_dataset(names[i] + '/Compound', data=np.array(j["Compound"]), dtype=dt)
@@ -120,33 +118,28 @@ def output_results(Ifile_name, smiles, adducts, ccs_pred, Ofile_name):
         table = pd.read_csv(Ifile_name, sep=",", header=0)
     elif Ifile_name[-5:] == ".xlsx" or Ifile_name[-4:] == ".xls":
         table = pd.read_excel(Ifile_name, header=0)
-    print(list(table.columns.values))
 
     if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
         raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
-                         "use the provided template if needed.")
+                         "Use the provided template if needed.")
 
-    out_df = table.assign(CCS_pred=pd.Series(np.zeros(len(table)), index=table.index))
-    for idx, row in enumerate(out_df.itertuples()):
-        for i, j in enumerate(smiles):
-            if row.SMILES == j and row.Adducts == adducts[i]:
-                out_df.iloc[idx, -1] = ccs_pred[i]
-            elif row.SMILES != j and row.Adducts != adducts[i] and out_df.iloc[idx, -1] == 0:
-                out_df.iloc[idx, -1] = "-"
+    results_table = pd.DataFrame({"SMILES": smiles, "Adducts": adducts, "CCS_DeepCCS": ccs_pred})
+    results_table.transpose()
+
+    out_df = pd.merge(left=table, right=results_table, on=["SMILES", "Adducts"], how='left')
 
     pd.options.display.max_colwidth = 2000
     out_df_string = out_df.to_string(header=True)
 
-    if Ofile_name == None:
-        sys.stdout.write(out_df_string)
+    if Ofile_name is None:
+        sys.stdout.write(out_df_string + "\n")
     else:
         out_df.to_csv(Ofile_name, encoding='utf-8', index=False)
-    # f = open(Ofile_name, 'w')
-    # f.write(out_df.to_string(header=True).encode('utf-8'))
-    # f.close
 
 
 def output_global_stats(ccs_ref, ccs_pred):
+    if len(ccs_pred) != len(ccs_ref):
+        raise ValueError("The two arrays should have the same length.")
     ccs_ref = np.array(ccs_ref)
     ccs_pred = np.array(ccs_pred)
 
@@ -159,6 +152,7 @@ def output_global_stats(ccs_ref, ccs_pred):
     perc_95 = round(percentile_95(ccs_ref, ccs_pred), 2)
 
     print("---------------------------------")
+    print("    Number of items :  {} ".format(len(ccs_pred)))
     print("     Absolute Mean  :  {} ".format(mean))
     print("     Relative Mean  :  {}% ".format(rel_mean))
     print("    Absolute Median :  {} ".format(med))
@@ -185,9 +179,7 @@ def read_datasets(h5_path, dataset_name):
     pd_df["CCS"] = f[dataset_name + '/CCS']
     pd_df["Metadata"] = f[dataset_name + '/Metadata']
     f.close()
-
     pd_df = filter_data(pd_df)
-
     return pd_df
 
 
@@ -196,7 +188,7 @@ def read_input_table(file_name):
         table = pd.read_csv(file_name, sep=",", header=0)
     elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
         table = pd.read_excel(file_name, header=0)
-    print(list(table.columns.values))
+
     if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts"]):
         raise ValueError("Supplied file must contain at leat 2 columns named 'SMILES' and 'Adducts'. "
                          "use the provided template if needed.")
@@ -213,7 +205,7 @@ def read_reference_table(file_name):
         table = pd.read_csv(file_name, sep=",", header=0)
     elif file_name[-5:] == ".xlsx" or file_name[-4:] == ".xls":
         table = pd.read_excel(file_name, header=0)
-    print(list(table.columns.values))
+
     if not all(i in list(table.columns.values) for i in ["SMILES", "Adducts", "CCS"]):
         raise ValueError("Supplied file must contain at leat 3 columns named 'SMILES', 'Adducts' and 'CCS'. "
                          "use the provided template if needed.")
@@ -223,5 +215,3 @@ def read_reference_table(file_name):
     adducts = np.array(table['Adducts'])
     return smiles, adducts, ccs
 
-# if __name__ == '__main__':
-#    create_datasets_compil("/is2/projects/JC_Elinaf/Data_CCS/")
