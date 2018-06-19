@@ -1,6 +1,6 @@
 # DeepCCS
 
-<img src="http://gdurl.com/PrrA" height="50" />
+<img src="http://gdurl.com/PrrA" width=125 height=125 />
 
 CCS prediction from SMILES using deep neural network.
 
