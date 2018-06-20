@@ -52,12 +52,12 @@ class CommandLineInterface(object):
 
         if len(argv) == 1:
             parser.print_help()
+            exit()
 
         if "--" == argv[1][:2]:  # An option was used. Parse it immediatly
-            print(argv[1])
             args = parser.parse_args([argv[1], "predict"])  # Add predict to avoid error message.
 
-            print("-- was used. Here are the args status:\n" + str(args))
+            logging.debug("-- was used. Here are the args status:\n" + str(args))
             if args.license:
                 self.print_license()
             if args.version:
@@ -69,7 +69,7 @@ class CommandLineInterface(object):
 
         else:
             args = parser.parse_args(argv[1:2])
-            print("-- was not used. Here are the args:" + str(vars(args)))
+            logging.debug("-- was not used. Here are the args:" + str(vars(args)))
             if args.command not in self.available_commands:
                 print("Not a valid command.")
                 print(parser.print_help())
@@ -560,6 +560,6 @@ class CommandLineInterface(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s.%(msecs)d %(levelname)s %(module)s - %(process)d - %(funcName)s: %(message)s")
+    #logging.basicConfig(level=logging.DEBUG,
+    #                    format="%(asctime)s.%(msecs)d %(levelname)s %(module)s - %(process)d - %(funcName)s: %(message)s")
     CommandLineInterface()

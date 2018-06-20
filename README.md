@@ -27,8 +27,9 @@ To install, go to the `core` directory and simply perform the following command 
 
     python setup.py install
 
-## Functionalities
 
+## Functionalities
+*On Windows operating system, the symbolic link `DeepCCS` will not work and user should use the command_line_tool.py script in order to use DeepCCS*
 ### Predict
 Predict CCS using a SMILES and an adduct.
 
