@@ -10,7 +10,7 @@ After installation, go to the DeepCCS/interface/ directory.
 
 - **INPUT** is the input file with at least a “SMILES” and an “Adducts” column
 
-The default model and encoders files will be used. See the predict section bellow for more options.
+The default model and encoders files will be used. See the [predict](https://github.com/plpla/DeepCCS#predict) section bellow for more options.
 
 ## Installation
 
@@ -23,7 +23,7 @@ Package required:
  * Tensorflow
  * Keras
 
-To install, simply perform the following command using a terminal:
+To install, go to the `core` directory and simply perform the following command using a terminal:
 
     python setup.py install
 
