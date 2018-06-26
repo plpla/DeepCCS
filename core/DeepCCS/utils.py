@@ -163,7 +163,7 @@ def output_global_stats(ccs_ref, ccs_pred):
     print("---------------------------------")
 
 
-def read_datasets(h5_path, dataset_name):
+def read_dataset(h5_path, dataset_name):
     # Choices of dataset_name are : MetCCS_pos, MetCCS_neg, Agilent_pos, Agilent_neg, Waters_pos, Waters_neg, PNL, McLean, CBM
 
     # Create df

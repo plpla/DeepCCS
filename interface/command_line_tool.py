@@ -170,7 +170,7 @@ class CommandLineInterface(object):
             raise ValueError("At least one datafile must be used to train a model.")
 
         from DeepCCS.model import DeepCCS
-        from DeepCCS.utils import read_datasets, read_reference_table, output_global_stats
+        from DeepCCS.utils import read_dataset, read_reference_table, output_global_stats
         from keras.callbacks import ModelCheckpoint
 
         logging.debug("Starting prediction tool with the following args:" + str(args))
@@ -197,7 +197,7 @@ class CommandLineInterface(object):
         # Load source datasets according to args
         if args.mtrain:
             for d in ["MetCCS_pos", "MetCCS_neg"]:
-                df_dt = read_datasets(args.f, d)
+                df_dt = read_dataset(args.f, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
@@ -208,7 +208,7 @@ class CommandLineInterface(object):
             name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
         else:
             for d in ["Agilent_pos", "Agilent_neg"]:
-                df_dt = read_datasets(args.f, d)
+                df_dt = read_dataset(args.f, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
@@ -220,7 +220,7 @@ class CommandLineInterface(object):
             name_test_dataset.extend(["Waters_pos", "Waters_neg"])
         else:
             for d in ["Waters_pos", "Waters_neg"]:
-                df_dt = read_datasets(args.f, d)
+                df_dt = read_dataset(args.f, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
@@ -246,7 +246,7 @@ class CommandLineInterface(object):
         train_fraction = 1 - args.test
         for d in dt_list:
             name_test_dataset.append(d)
-            data = read_datasets(args.f, d)
+            data = read_dataset(args.f, d)
             train = data.sample(frac=train_fraction)
             test = data.drop(train.index)
 
@@ -481,7 +481,7 @@ class CommandLineInterface(object):
 
         args = parser.parse_args(argv[2:])
 
-        from DeepCCS.utils import read_datasets, read_reference_table, output_results, output_global_stats
+        from DeepCCS.utils import read_dataset, read_reference_table, output_results, output_global_stats
 
         logging.debug("Starting comparaison tool with the following args:" + str(args))
         if not path.isfile(args.i):
@@ -506,7 +506,7 @@ class CommandLineInterface(object):
         # print general stats on the compaison
         logging.debug("Starting iterating on the dataset list of comparaison")
         for i in dt_list:
-            df_dt = read_datasets(args.f, i)
+            df_dt = read_dataset(args.f, i)
             smiles = df_dt["SMILES"]
             adducts = df_dt["Adducts"]
             ccs = df_dt["CCS"]

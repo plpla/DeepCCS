@@ -71,24 +71,21 @@ class DeepCCSModel(object):
             """
         smile_input_layer = Input(shape=(250, len(self.smiles_encoder.converter)), name="smile")
         conv = Conv1D(64, kernel_size=4, activation='relu', kernel_initializer='normal')(smile_input_layer)
-        previous = conv
 
-        for i in range(7 - 1):
+        previous = conv
+        for i in range(6):
             conv = Conv1D(64, kernel_size=4, activation='relu', kernel_initializer='normal')(previous)
-            if i == 7 - 2:
+            if i == 5:
                 pool = MaxPooling1D(pool_size=2, strides=2)(conv)
             else:
                 pool = MaxPooling1D(pool_size=2, strides=1)(conv)
             previous = pool
 
         flat = Flatten()(previous)
-        previous = flat
-
         adduct_input_layer = Input(shape=(len(self.adduct_encoder.converter),), name="adduct")
+        remix_layer = keras.layers.concatenate([flat, adduct_input_layer], axis=-1)
 
-        remix_layer = keras.layers.concatenate([previous, adduct_input_layer], axis=-1)
         previous = remix_layer
-
         for i in range(2):
             dense_layer = Dense(384, activation="relu", kernel_initializer='normal')(previous)
             previous = dense_layer
