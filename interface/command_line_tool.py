@@ -229,15 +229,13 @@ class CommandLineInterface(object):
 
         if args.pnnl:
             dt_list.append("PNL")
-            name_test_dataset.append("PNL")
-
+            
         if args.mclean:
             dt_list.append("McLean")
-            name_test_dataset.append("McLean")
-
+            
         if args.cbm:
             dt_list.append("CBM")
-            name_test_dataset.append("CBM")
+            
         logging.debug("Number of training dataset: {}".format(len(training_datasets)))
 
         logging.debug("Training dataset list: {}".format(dt_list))
