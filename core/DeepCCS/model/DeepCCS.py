@@ -69,6 +69,8 @@ class DeepCCSModel(object):
         """
             Builds a neural net using a set of arguments
             """
+        if len(self.smiles_encoder.converter) == 0 or len(self.adduct_encoder.converter) ==  0:
+            raise ValueError("Encoders must be fit before creating a model.")
         smile_input_layer = Input(shape=(250, len(self.smiles_encoder.converter)), name="smile")
         conv = Conv1D(64, kernel_size=4, activation='relu', kernel_initializer='normal')(smile_input_layer)
 
