@@ -27,7 +27,7 @@ import pandas as pd
 import h5py as h5
 import sys
 from sklearn.metrics import r2_score, mean_absolute_error, median_absolute_error
-
+from .model.splitter import SMILESsplitter
 
 def filter_data(data_table):
     """
@@ -38,7 +38,8 @@ def filter_data(data_table):
     # Remove smiles that are too long
     logging.debug("{} items before filtering".format(len(data_table)))
     pre_filter = len(data_table)
-    data = data_table[np.array([len(str(i)) for i in data_table["SMILES"]]) <= MAX_SMILES_LENGTH]
+    smiles_splitter = SMILESsplitter()
+    data = data_table[np.array([len(smiles_splitter.split(i)) for i in data_table["SMILES"]]) <= MAX_SMILES_LENGTH]
     # Remove empty smiles
     data = data[np.array([len(str(i)) for i in data["SMILES"]]) > 0]
     data = data.dropna(axis=0, how="any", subset=["SMILES"])

@@ -25,6 +25,10 @@ class SMILESsplitter:
     def split(self, smiles):
         """
         Split a single SMILES using chemical symbols and characters.
+        Two letters chemical symbol that end with a 'c' might not be handled properly.
+        Nitrogen, Sulfur and Oxygen can miss-handled if they are at the begining of an aromatic structure (ex: Coccc)
+        As and Se will be splitted in two caracters if they are found in an aromatic structure.
+        Only Co is seen in the current dataset and it is handled properly. TODO: better splitting.
         :param smiles: The SMILES to split
         :return: A list of chemical symbol/character ordered as
         """
@@ -35,7 +39,6 @@ class SMILESsplitter:
                     splitted_smiles.append(k + smiles[j + 1])
                 else:
                     splitted_smiles.append(k)
-
             elif j != 0 and j < len(smiles) - 1:
                 if k.isupper() and smiles[j + 1].islower() and smiles[j + 1] != "c":
                     splitted_smiles.append(k + smiles[j + 1])
