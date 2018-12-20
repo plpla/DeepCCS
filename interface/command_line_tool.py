@@ -126,26 +126,24 @@ class CommandLineInterface(object):
         output_results(args.i, X_smiles, X_adducts, ccs_pred, out_file_name)
 
     def train(self):
-        parser = argparse.ArgumentParser(prog='DeepCCS train',
-                                         description="Train a new model.")
+        parser = argparse.ArgumentParser(prog='DeepCCS train', description="Train a new model.")
         parser.add_argument("-ap", help="path to adducts_encoder directory", default=None)
         parser.add_argument("-sp", help="path to smiles_encoder directory", default=None)
 
         parser.add_argument("-mtrain", help="Use MetCCS train datasets to create the model", default=False,
                             action="store_true", dest="mtrain")
-        parser.add_argument("-mtestA", help="Use MetCCS Agilent test datasets to create the model", default=False,
+        parser.add_argument("-mtest", help="Use MetCCS test datasets to create the model", default=False,
                             action="store_true", dest="mtestA")
-        parser.add_argument("-mtestW", help="MetCCS Waters test datasets to create the model", default=False,
+        parser.add_argument("-ast", help="Astarita test datasets to create the model", default=False,
                             action="store_true", dest="mtestW")
 
-        parser.add_argument("-pnnl", help="PNNL dataset to create the model", default=False, action="store_true",
+        parser.add_argument("-baker", help="Baker dataset to create the model", default=False, action="store_true",
                             dest="pnnl")
         parser.add_argument("-cbm", help="CBM2018 dataset to create the model", default=False, action="store_true",
                             dest="cbm")
         parser.add_argument("-mclean", help="McLean dataset to create the model", default=False, action="store_true",
                             dest="mclean")
-        parser.add_argument("-f", help="h5 file containing all source datasets", required=True)
-
+        
         parser.add_argument("-nd", help="New Data to create the model, list of template file (file1.csv,file2.csv,...)",
                             default=None)
         parser.add_argument("-nepochs", help="Number of epochs", default=150)
@@ -164,8 +162,8 @@ class CommandLineInterface(object):
         if 0 >= args.test >= 1:
             raise ValueError("Proportion in test set must be between 0 and 1. Recommended: 0.2")
 
-        logging.debug("\nCondition is: {}".format(not(args.mtrain or args.mtestA or args.mtestW or args.pnnl or args.cbm or args.mclean)))
-        if not (args.mtrain or args.mtestA or args.mtestW or args.pnnl or args.cbm or args.mclean or
+        logging.debug("\nCondition is: {}".format(not(args.mtrain or args.mtest or args.ast or args.baker or args.cbm or args.mclean)))
+        if not (args.mtrain or args.mtest or args.ast or args.baker or args.cbm or args.mclean or
                 args.nd is not None):
             raise ValueError("At least one datafile must be used to train a model.")
 
@@ -176,8 +174,6 @@ class CommandLineInterface(object):
         logging.debug("Starting prediction tool with the following args:" + str(args))
         if not path.isdir(args.o):
             raise IOError("Directory for output model cannot be found")
-        if not path.isfile(args.f):
-            raise IOError("h5 file of source datasets cannot be found")
 
         # Initialize lists
         training_datasets = []
@@ -195,40 +191,41 @@ class CommandLineInterface(object):
         # MetCCS datasets are the only possible exception to the 80-20 rule
 
         # Load source datasets according to args
+        source_data = "../DATASETS.h5"
         if args.mtrain:
-            for d in ["MetCCS_pos", "MetCCS_neg"]:
-                df_dt = read_dataset(args.f, d)
+            for d in ["MetCCS_train_pos", "MetCCS_train_neg"]:
+                df_dt = read_dataset(source_data, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
                 training_datasets.append([smiles, adducts, ccs])
 
-        if args.mtestA:
-            dt_list.extend(["Agilent_pos", "Agilent_neg"])
-            name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
+        if args.mtest:
+            dt_list.extend(["MetCCS_test_pos", "MetCCS_test_neg"])
+            name_test_dataset.extend(["MetCCS_test_pos", "MetCCS_test_neg"])
         else:
-            for d in ["Agilent_pos", "Agilent_neg"]:
-                df_dt = read_dataset(args.f, d)
+            for d in ["MetCCS_test_pos", "MetCCS_test_neg"]:
+                df_dt = read_dataset(source_data, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
                 testing_datasets.append([smiles, adducts, ccs])
-            name_test_dataset.extend(["Agilent_pos", "Agilent_neg"])
+            name_test_dataset.extend(["MetCCS_test_pos", "MetCCS_test_neg"])
 
-        if args.mtestW:
-            dt_list.extend(["Waters_pos", "Waters_neg"])
-            name_test_dataset.extend(["Waters_pos", "Waters_neg"])
+        if args.ast:
+            dt_list.extend(["Astarita_pos", "Astarita_neg"])
+            name_test_dataset.extend(["Astarita_pos", "Astarita_neg"])
         else:
-            for d in ["Waters_pos", "Waters_neg"]:
-                df_dt = read_dataset(args.f, d)
+            for d in ["Astarita_pos", "Astarita_neg"]:
+                df_dt = read_dataset(source_data, d)
                 smiles = df_dt["SMILES"]
                 adducts = df_dt["Adducts"]
                 ccs = df_dt["CCS"]
                 testing_datasets.append([smiles, adducts, ccs])
-            name_test_dataset.extend(["Waters_pos", "Waters_neg"])
+            name_test_dataset.extend(["Astarita_pos", "Astarita_neg"])
 
-        if args.pnnl:
-            dt_list.append("PNL")
+        if args.baker:
+            dt_list.append("Baker")
             
         if args.mclean:
             dt_list.append("McLean")
@@ -244,7 +241,7 @@ class CommandLineInterface(object):
         train_fraction = 1 - args.test
         for d in dt_list:
             name_test_dataset.append(d)
-            data = read_dataset(args.f, d)
+            data = read_dataset(source_data, d)
             train = data.sample(frac=train_fraction)
             test = data.drop(train.index)
 
@@ -470,7 +467,6 @@ class CommandLineInterface(object):
         parser.add_argument("-i", help="Input file name", required=True)
         parser.add_argument("-o", help="Prefix of output file name (ex: MyFile_). If not specified, stdout will be " +
                                        "used. If 'none', onlyt the stats will be shown.", default="")
-        parser.add_argument("-f", help="hdf5 file containing the datasets used to create this algoritm", required=True)
         parser.add_argument("-d", help="List of datasets to compare to separated by coma (dtA,dtB,dtC)", default=None)
 
         if len(argv) <= 2:
@@ -484,8 +480,6 @@ class CommandLineInterface(object):
         logging.debug("Starting comparaison tool with the following args:" + str(args))
         if not path.isfile(args.i):
             raise IOError("Reference file cannot be found")
-        if not path.isfile(args.f):
-            raise IOError("h5 file cannot be found")
 
         # Output prefix, if none : output to stdout
         out_file_name_prefix = None
@@ -496,7 +490,7 @@ class CommandLineInterface(object):
         if args.d is not None:
             dt_list = args.d.split(", ")
         else:
-            dt_list = ["MetCCS_pos", "MetCCS_neg", "Agilent_pos", "Agilent_neg", "Waters_pos", "Waters_neg", "PNL",
+            dt_list = ["MetCCS_train_pos", "MetCCS_train_neg", "MetCCS_test_pos", "MetCCS_test_neg", "Astarita_pos", "Astarita_neg", "Baker",
                        "McLean", "CBM"]
 
         # Get a pandas dataframe for each dataset asked for comparaison
@@ -504,7 +498,7 @@ class CommandLineInterface(object):
         # print general stats on the compaison
         logging.debug("Starting iterating on the dataset list of comparaison")
         for i in dt_list:
-            df_dt = read_dataset(args.f, i)
+            df_dt = read_dataset("../DATASETS.h5", i)
             smiles = df_dt["SMILES"]
             adducts = df_dt["Adducts"]
             ccs = df_dt["CCS"]
