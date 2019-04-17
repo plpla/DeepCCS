@@ -133,12 +133,12 @@ class CommandLineInterface(object):
         parser.add_argument("-mtrain", help="Use MetCCS train datasets to create the model", default=False,
                             action="store_true", dest="mtrain")
         parser.add_argument("-mtest", help="Use MetCCS test datasets to create the model", default=False,
-                            action="store_true", dest="mtestA")
+                            action="store_true", dest="mtest")
         parser.add_argument("-ast", help="Astarita test datasets to create the model", default=False,
-                            action="store_true", dest="mtestW")
+                            action="store_true", dest="ast")
 
         parser.add_argument("-baker", help="Baker dataset to create the model", default=False, action="store_true",
-                            dest="pnnl")
+                            dest="baker")
         parser.add_argument("-cbm", help="CBM2018 dataset to create the model", default=False, action="store_true",
                             dest="cbm")
         parser.add_argument("-mclean", help="McLean dataset to create the model", default=False, action="store_true",
@@ -163,8 +163,7 @@ class CommandLineInterface(object):
             raise ValueError("Proportion in test set must be between 0 and 1. Recommended: 0.2")
 
         logging.debug("\nCondition is: {}".format(not(args.mtrain or args.mtest or args.ast or args.baker or args.cbm or args.mclean)))
-        if not (args.mtrain or args.mtest or args.ast or args.baker or args.cbm or args.mclean or
-                args.nd is not None):
+        if not (args.mtrain or args.mtest or args.ast or args.baker or args.cbm or args.mclean or args.nd is not None):
             raise ValueError("At least one datafile must be used to train a model.")
 
         from DeepCCS.model import DeepCCS
